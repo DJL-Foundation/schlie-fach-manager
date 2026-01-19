@@ -1,314 +1,335 @@
-use crate::{
-    db::Database,
-    model::{Locker, LockerStatus},
-};
-use color_eyre::eyre::{Result, eyre};
-use unicode_width::UnicodeWidthStr;
+use crate::db::{lockers, queries, rentals, Database};
+use crate::models::{DashboardStats, DebtorInfo, Locker, PaymentSummary, RentalWithLocker};
+use crate::ui::screens::finance::FinanceState;
+use crate::ui::screens::management::ManagementState;
+use crate::ui::screens::rental::RentalState;
+use crate::ui::state::{AppScreen, ConfirmDialog, InputMode, Notification, RentalManagementTab};
+use color_eyre::eyre::Result;
 
-/// Describes in which context the TUI currently processes keyboard input.
-/// * `Normal`: navigation / command keys
-/// * `Searching`: keystrokes are appended to the search query
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InputMode {
-    Normal,
-    Searching,
-}
-
-/// Application state container that keeps track of all lockers,
-/// the filtered selection, input handling flags, and transient UI messages.
+/// Main application state machine.
 pub struct App {
-    db: Database,
-    lockers: Vec<Locker>,
-    filtered_indices: Vec<usize>,
-    selected: usize,
+    pub db: Database,
+    pub screen: AppScreen,
+    pub should_quit: bool,
+
+    // Cached data
+    pub lockers: Vec<Locker>,
+    pub active_rentals: Vec<RentalWithLocker>,
+    pub dashboard_stats: DashboardStats,
+    pub payment_summary: PaymentSummary,
+    pub debtors: Vec<DebtorInfo>,
+    pub locations: Vec<String>,
+
+    // Screen-specific states
+    pub rental_state: RentalState,
+    pub finance_state: FinanceState,
+    pub management_state: ManagementState,
+
+    // Input state
     pub input_mode: InputMode,
     pub search_query: String,
-    pub status_message: Option<String>,
+
+    // UI state
+    pub notification: Option<Notification>,
+    pub confirm_dialog: Option<ConfirmDialog>,
 }
 
 impl App {
-    /// Creates a new application instance using the provided `Database`.
-    /// Lockers are loaded immediately so the UI can render meaningful data.
+    /// Creates a new application instance.
     pub fn new(db: Database) -> Result<Self> {
-        let lockers = db.list_lockers()?;
-        let filtered_indices = (0..lockers.len()).collect();
-        Ok(Self {
+        let mut app = Self {
             db,
-            lockers,
-            filtered_indices,
-            selected: 0,
+            screen: AppScreen::Dashboard,
+            should_quit: false,
+            lockers: Vec::new(),
+            active_rentals: Vec::new(),
+            dashboard_stats: DashboardStats::default(),
+            payment_summary: PaymentSummary::default(),
+            debtors: Vec::new(),
+            locations: Vec::new(),
+            rental_state: RentalState::new(),
+            finance_state: FinanceState::new(),
+            management_state: ManagementState::new(),
             input_mode: InputMode::Normal,
             search_query: String::new(),
-            status_message: None,
-        })
-    }
-
-    /// Reloads locker data from storage (e.g. after an external modification).
-    pub fn reload(&mut self) -> Result<()> {
-        self.lockers = self.db.list_lockers()?;
-        self.filtered_indices = (0..self.lockers.len()).collect();
-        self.selected = 0;
-        self.apply_filter();
-        Ok(())
-    }
-
-    /// Returns the number of lockers visible after filtering.
-    pub fn visible_count(&self) -> usize {
-        self.filtered_indices.len()
-    }
-
-    /// Returns the currently highlighted index inside the filtered list.
-    pub fn selected_index(&self) -> Option<usize> {
-        if self.filtered_indices.is_empty() {
-            None
-        } else {
-            Some(self.selected)
-        }
-    }
-
-    /// Returns the width of the search query in terminal cells for layout calculations.
-    pub fn search_width(&self) -> usize {
-        UnicodeWidthStr::width(self.search_query.as_str())
-    }
-
-    /// Provides immutable access to the locker currently highlighted in the list.
-    pub fn selected_locker(&self) -> Option<&Locker> {
-        self.filtered_indices
-            .get(self.selected)
-            .and_then(|&idx| self.lockers.get(idx))
-    }
-
-    /// Returns immutable access to the locker at the provided visible index.
-    pub fn locker_at(&self, visible_index: usize) -> Option<&Locker> {
-        self.filtered_indices
-            .get(visible_index)
-            .and_then(|&idx| self.lockers.get(idx))
-    }
-
-    /// Iterates over all lockers that pass the current filter.
-    pub fn visible_lockers(&self) -> impl Iterator<Item = &Locker> + '_ {
-        self.filtered_indices
-            .iter()
-            .filter_map(|&idx| self.lockers.get(idx))
-    }
-
-    /// Provides mutable access to the selected locker for in-place updates.
-    fn selected_locker_mut(&mut self) -> Option<&mut Locker> {
-        let idx = *self.filtered_indices.get(self.selected)?;
-        self.lockers.get_mut(idx)
-    }
-
-    /// Move the selection cursor to the next visible locker (wraps around).
-    pub fn next(&mut self) {
-        if self.filtered_indices.is_empty() {
-            return;
-        }
-        self.selected = (self.selected + 1) % self.filtered_indices.len();
-    }
-
-    /// Move the selection cursor to the previous visible locker (wraps around).
-    pub fn previous(&mut self) {
-        if self.filtered_indices.is_empty() {
-            return;
-        }
-        if self.selected == 0 {
-            self.selected = self.filtered_indices.len() - 1;
-        } else {
-            self.selected -= 1;
-        }
-    }
-
-    /// Appends a character to the search query and updates the filter set.
-    pub fn push_search_char(&mut self, ch: char) {
-        self.search_query.push(ch);
-        self.apply_filter();
-    }
-
-    /// Removes the last character from the search query and updates the filter set.
-    pub fn pop_search_char(&mut self) {
-        self.search_query.pop();
-        self.apply_filter();
-    }
-
-    /// Clears the search query completely.
-    pub fn clear_search(&mut self) {
-        self.search_query.clear();
-        self.apply_filter();
-    }
-
-    /// Switches the current input handling mode.
-    pub fn set_input_mode(&mut self, mode: InputMode) {
-        self.input_mode = mode;
-    }
-
-    /// Assigns the selected locker to the provided `occupant`.
-    pub fn assign_selected(&mut self, occupant: impl Into<String>) -> Result<()> {
-        let name = occupant.into();
-        if name.trim().is_empty() {
-            return Err(eyre!("Name darf nicht leer sein"));
-        }
-
-        let locker = self
-            .selected_locker_mut()
-            .ok_or_else(|| eyre!("kein Schließfach ausgewählt"))?;
-
-        let updated = {
-            locker.assign(name);
-            locker.clone()
+            notification: None,
+            confirm_dialog: None,
         };
+        app.reload_data()?;
+        Ok(app)
+    }
 
-        self.db.upsert_locker(&updated)?;
-        self.set_status("Schließfach belegt");
+    /// Reloads all data from the database.
+    pub fn reload_data(&mut self) -> Result<()> {
+        self.lockers = lockers::list_lockers(&self.db.conn)?;
+        self.active_rentals = queries::get_active_rentals_with_lockers(&self.db.conn)?;
+        self.dashboard_stats = queries::get_dashboard_stats(&self.db.conn)?;
+        self.payment_summary = queries::get_payment_summary(&self.db.conn, None, None)?;
+        self.debtors = queries::get_debtors(&self.db.conn)?;
+        self.locations = lockers::list_distinct_locations(&self.db.conn)?;
         Ok(())
     }
 
-    /// Releases (frees) the selected locker.
-    pub fn release_selected(&mut self) -> Result<()> {
-        let locker = self
-            .selected_locker_mut()
-            .ok_or_else(|| eyre!("kein Schließfach ausgewählt"))?;
+    /// Switches to the given screen.
+    pub fn switch_screen(&mut self, screen: AppScreen) {
+        self.screen = screen;
+        self.clear_search();
+    }
 
-        let updated = {
-            locker.release();
-            locker.clone()
+    /// Switches to the next main screen.
+    pub fn next_screen(&mut self) {
+        self.screen = match &self.screen {
+            AppScreen::Dashboard => {
+                AppScreen::RentalManagement(RentalManagementTab::List)
+            }
+            AppScreen::RentalManagement(_) => {
+                AppScreen::Finance(crate::ui::state::FinanceTab::Overview)
+            }
+            AppScreen::Finance(_) => {
+                AppScreen::Management(crate::ui::state::ManagementTab::Lockers)
+            }
+            AppScreen::Management(_) => AppScreen::Dashboard,
         };
-
-        self.db.upsert_locker(&updated)?;
-        self.set_status("Schließfach freigegeben");
-        Ok(())
+        self.clear_search();
     }
 
-    /// Toggles maintenance mode for the selected locker.
-    /// When `note` is `Some`, the locker is set to maintenance with that note.
-    /// When `None`, it switches back to available.
-    pub fn toggle_maintenance(&mut self, note: Option<String>) -> Result<()> {
-        let locker = self
-            .selected_locker_mut()
-            .ok_or_else(|| eyre!("kein Schließfach ausgewählt"))?;
+    /// Switches to the previous main screen.
+    pub fn prev_screen(&mut self) {
+        self.screen = match &self.screen {
+            AppScreen::Dashboard => {
+                AppScreen::Management(crate::ui::state::ManagementTab::Lockers)
+            }
+            AppScreen::RentalManagement(_) => AppScreen::Dashboard,
+            AppScreen::Finance(_) => {
+                AppScreen::RentalManagement(RentalManagementTab::List)
+            }
+            AppScreen::Management(_) => {
+                AppScreen::Finance(crate::ui::state::FinanceTab::Overview)
+            }
+        };
+        self.clear_search();
+    }
 
-        let updated = {
-            match locker.status {
-                LockerStatus::Maintenance => locker.mark_available(),
-                _ => {
-                    let text = note.unwrap_or_else(|| "Wartung".to_string());
-                    locker.mark_maintenance(text);
+    /// Navigates up in the current list.
+    pub fn navigate_up(&mut self) {
+        match &self.screen {
+            AppScreen::RentalManagement(RentalManagementTab::List) => {
+                if self.rental_state.list_selected > 0 {
+                    self.rental_state.list_selected -= 1;
+                } else if !self.lockers.is_empty() {
+                    self.rental_state.list_selected = self.lockers.len() - 1;
                 }
             }
-            locker.clone()
-        };
+            AppScreen::Finance(crate::ui::state::FinanceTab::Debtors) => {
+                if self.finance_state.debtors_selected > 0 {
+                    self.finance_state.debtors_selected -= 1;
+                } else if !self.debtors.is_empty() {
+                    self.finance_state.debtors_selected = self.debtors.len() - 1;
+                }
+            }
+            AppScreen::Management(crate::ui::state::ManagementTab::Lockers) => {
+                if self.management_state.lockers_selected > 0 {
+                    self.management_state.lockers_selected -= 1;
+                } else if !self.lockers.is_empty() {
+                    self.management_state.lockers_selected = self.lockers.len() - 1;
+                }
+            }
+            AppScreen::Management(crate::ui::state::ManagementTab::Locations) => {
+                if self.management_state.locations_selected > 0 {
+                    self.management_state.locations_selected -= 1;
+                } else if !self.locations.is_empty() {
+                    self.management_state.locations_selected = self.locations.len() - 1;
+                }
+            }
+            _ => {}
+        }
+    }
 
-        self.db.upsert_locker(&updated)?;
-        self.set_status("Wartungsstatus geändert");
+    /// Navigates down in the current list.
+    pub fn navigate_down(&mut self) {
+        match &self.screen {
+            AppScreen::RentalManagement(RentalManagementTab::List) => {
+                if self.rental_state.list_selected < self.lockers.len().saturating_sub(1) {
+                    self.rental_state.list_selected += 1;
+                } else {
+                    self.rental_state.list_selected = 0;
+                }
+            }
+            AppScreen::Finance(crate::ui::state::FinanceTab::Debtors) => {
+                if self.finance_state.debtors_selected < self.debtors.len().saturating_sub(1) {
+                    self.finance_state.debtors_selected += 1;
+                } else {
+                    self.finance_state.debtors_selected = 0;
+                }
+            }
+            AppScreen::Management(crate::ui::state::ManagementTab::Lockers) => {
+                if self.management_state.lockers_selected < self.lockers.len().saturating_sub(1) {
+                    self.management_state.lockers_selected += 1;
+                } else {
+                    self.management_state.lockers_selected = 0;
+                }
+            }
+            AppScreen::Management(crate::ui::state::ManagementTab::Locations) => {
+                if self.management_state.locations_selected < self.locations.len().saturating_sub(1)
+                {
+                    self.management_state.locations_selected += 1;
+                } else {
+                    self.management_state.locations_selected = 0;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Handles the Tab key to switch between sub-tabs.
+    pub fn next_tab(&mut self) {
+        match &self.screen {
+            AppScreen::RentalManagement(_) => {
+                self.rental_state.next_tab();
+                self.screen = AppScreen::RentalManagement(self.rental_state.selected_tab);
+            }
+            AppScreen::Finance(_) => {
+                self.finance_state.next_tab();
+                self.screen = AppScreen::Finance(self.finance_state.selected_tab);
+            }
+            AppScreen::Management(_) => {
+                self.management_state.next_tab();
+                self.screen = AppScreen::Management(self.management_state.selected_tab);
+            }
+            AppScreen::Dashboard => {
+                // Tab from dashboard goes to rental management
+                self.next_screen();
+            }
+        }
+    }
+
+    /// Clears the search query.
+    pub fn clear_search(&mut self) {
+        self.search_query.clear();
+        self.input_mode = InputMode::Normal;
+    }
+
+    /// Appends a character to the search query.
+    pub fn push_search_char(&mut self, ch: char) {
+        self.search_query.push(ch);
+    }
+
+    /// Removes the last character from the search query.
+    pub fn pop_search_char(&mut self) {
+        self.search_query.pop();
+    }
+
+    /// Shows a notification.
+    pub fn show_notification(&mut self, notification: Notification) {
+        self.notification = Some(notification);
+    }
+
+    /// Shows a success notification.
+    pub fn show_success(&mut self, message: impl Into<String>) {
+        self.notification = Some(Notification::success(message));
+    }
+
+    /// Shows an error notification.
+    pub fn show_error(&mut self, message: impl Into<String>) {
+        self.notification = Some(Notification::error(message));
+    }
+
+    /// Clears expired notifications.
+    pub fn clear_expired_notifications(&mut self) {
+        if let Some(ref n) = self.notification {
+            if n.is_expired() {
+                self.notification = None;
+            }
+        }
+    }
+
+    /// Shows a confirmation dialog.
+    pub fn show_confirm_dialog(&mut self, dialog: ConfirmDialog) {
+        self.confirm_dialog = Some(dialog);
+    }
+
+    /// Clears the confirmation dialog.
+    pub fn clear_confirm_dialog(&mut self) {
+        self.confirm_dialog = None;
+    }
+
+    /// Marks a locker as damaged.
+    pub fn mark_locker_damaged(&mut self, locker_id: i64) -> Result<()> {
+        lockers::mark_locker_damaged(&self.db.conn, locker_id)?;
+        self.reload_data()?;
+        self.show_success("Schließfach als defekt markiert");
         Ok(())
     }
 
-    /// Sets a transient status message that can be rendered by the UI footer.
-    pub fn set_status(&mut self, message: impl Into<String>) {
-        self.status_message = Some(message.into());
+    /// Marks a locker as repaired.
+    pub fn mark_locker_repaired(&mut self, locker_id: i64) -> Result<()> {
+        lockers::mark_locker_repaired(&self.db.conn, locker_id)?;
+        self.reload_data()?;
+        self.show_success("Schließfach als repariert markiert");
+        Ok(())
     }
 
-    /// Clears the currently visible status message.
-    pub fn clear_status(&mut self) {
-        self.status_message = None;
-    }
-
-    fn apply_filter(&mut self) {
-        if self.search_query.trim().is_empty() {
-            self.filtered_indices = (0..self.lockers.len()).collect();
-            self.selected = 0;
-            return;
+    /// Returns the currently selected locker.
+    pub fn selected_locker(&self) -> Option<&Locker> {
+        match &self.screen {
+            AppScreen::RentalManagement(RentalManagementTab::List) => {
+                self.lockers.get(self.rental_state.list_selected)
+            }
+            AppScreen::Management(crate::ui::state::ManagementTab::Lockers) => {
+                self.lockers.get(self.management_state.lockers_selected)
+            }
+            _ => None,
         }
-
-        let needle = self.search_query.to_lowercase();
-        self.filtered_indices = self
-            .lockers
-            .iter()
-            .enumerate()
-            .filter(|(_, locker)| locker.matches_query(&needle))
-            .map(|(idx, _)| idx)
-            .collect();
-
-        self.selected = 0;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::seed::seed_test_data;
 
-    fn build_app(lockers: &[Locker]) -> App {
+    fn setup_app() -> App {
         let db = Database::open_in_memory().expect("in-memory db");
-        for locker in lockers {
-            db.upsert_locker(locker).expect("seed locker");
-        }
+        seed_test_data(&db.conn).expect("seed data");
         App::new(db).expect("app init")
     }
 
     #[test]
-    fn filtering_updates_visible_indices() {
-        let lockers = [
-            Locker::new(1, "A-01"),
-            Locker::new(2, "B-02"),
-            Locker::new(3, "B-03"),
-        ];
-        let mut app = build_app(&lockers);
-
-        assert_eq!(app.visible_count(), 3);
-
-        app.push_search_char('b');
-        assert_eq!(app.visible_count(), 2);
-        let labels: Vec<&str> = app
-            .visible_lockers()
-            .map(|locker| locker.label.as_str())
-            .collect();
-        assert_eq!(labels, vec!["B-02", "B-03"]);
-
-        app.clear_search();
-        assert_eq!(app.visible_count(), 3);
+    fn test_app_creation() {
+        let app = setup_app();
+        assert!(!app.lockers.is_empty());
+        assert!(app.dashboard_stats.total_lockers > 0);
     }
 
     #[test]
-    fn navigation_wraps_around() {
-        let lockers = [Locker::new(1, "A-01"), Locker::new(2, "B-02")];
-        let mut app = build_app(&lockers);
+    fn test_screen_navigation() {
+        let mut app = setup_app();
+        assert_eq!(app.screen, AppScreen::Dashboard);
 
-        assert_eq!(app.selected_index(), Some(0));
-        app.previous();
-        assert_eq!(app.selected_index(), Some(1));
-        app.next();
-        assert_eq!(app.selected_index(), Some(0));
+        app.next_screen();
+        assert!(matches!(app.screen, AppScreen::RentalManagement(_)));
+
+        app.next_screen();
+        assert!(matches!(app.screen, AppScreen::Finance(_)));
+
+        app.next_screen();
+        assert!(matches!(app.screen, AppScreen::Management(_)));
+
+        app.next_screen();
+        assert_eq!(app.screen, AppScreen::Dashboard);
     }
 
     #[test]
-    fn actions_modify_selected_locker() {
-        let lockers = [Locker::new(1, "A-01")];
-        let mut app = build_app(&lockers);
+    fn test_list_navigation() {
+        let mut app = setup_app();
+        app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::List));
 
-        app.assign_selected("Max Mustermann")
-            .expect("assign selected failed");
-        let locker = app.selected_locker().expect("locker missing");
-        assert_eq!(locker.occupant.as_deref(), Some("Max Mustermann"));
-        assert_eq!(locker.status, LockerStatus::Occupied);
+        assert_eq!(app.rental_state.list_selected, 0);
 
-        app.toggle_maintenance(Some("Defekt".into()))
-            .expect("toggle maintenance on failed");
-        let locker = app.selected_locker().expect("locker missing");
-        assert_eq!(locker.status, LockerStatus::Maintenance);
-        assert_eq!(locker.note.as_deref(), Some("Defekt"));
-        assert!(locker.occupant.is_none());
+        app.navigate_down();
+        assert_eq!(app.rental_state.list_selected, 1);
 
-        app.toggle_maintenance(None)
-            .expect("toggle maintenance off failed");
-        assert_eq!(
-            app.selected_locker().expect("locker missing").status,
-            LockerStatus::Available
-        );
-
-        app.assign_selected("Erna")
-            .expect("assign second time failed");
-        app.release_selected().expect("release selected failed");
-        let locker = app.selected_locker().expect("locker missing");
-        assert!(locker.occupant.is_none());
-        assert_eq!(locker.status, LockerStatus::Available);
+        app.navigate_up();
+        assert_eq!(app.rental_state.list_selected, 0);
     }
 }

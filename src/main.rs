@@ -1,15 +1,17 @@
 mod app;
 mod config;
 mod db;
-mod model;
+mod export;
+mod models;
 mod ui;
+mod workflows;
 
 use std::{
     io::stdout,
     time::{Duration, Instant},
 };
 
-use app::{App, InputMode};
+use app::App;
 use color_eyre::eyre::Result;
 use crossterm::{
     cursor::{Hide, Show},
@@ -18,30 +20,19 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use db::Database;
-use model::Locker;
 use ratatui::{Terminal, backend::CrosstermBackend};
+use ui::state::{AppScreen, InputMode, RentalManagementTab, FinanceTab, ManagementTab};
 
 const TICK_RATE: Duration = Duration::from_millis(250);
-const DEFAULT_OCCUPANT: &str = "Unbekannt";
 
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let mut db = Database::open_default()?;
-    db.seed_if_empty(&default_seed())?;
+    let db = Database::open_default()?;
+    db::seed::seed_test_data(&db.conn)?;
 
     let app = App::new(db)?;
     start_terminal(app)
-}
-
-fn default_seed() -> Vec<Locker> {
-    vec![
-        Locker::new(1, "A-01"),
-        Locker::new(2, "A-02"),
-        Locker::new(3, "B-01"),
-        Locker::new(4, "B-02"),
-        Locker::new(5, "C-01"),
-    ]
 }
 
 fn start_terminal(mut app: App) -> Result<()> {
@@ -69,7 +60,7 @@ fn run_app(
     let mut last_tick = Instant::now();
 
     loop {
-        terminal.draw(|frame| ui::render(frame, app))?;
+        terminal.draw(|frame| render_ui(frame, app))?;
 
         let timeout = TICK_RATE
             .checked_sub(last_tick.elapsed())
@@ -90,56 +81,217 @@ fn run_app(
         }
 
         if last_tick.elapsed() >= TICK_RATE {
+            app.clear_expired_notifications();
             last_tick = Instant::now();
+        }
+
+        if app.should_quit {
+            break;
         }
     }
 
     Ok(())
 }
 
+fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
+    use ratatui::layout::{Constraint, Direction, Layout};
+    use ui::screens::{render_dashboard, render_finance, render_management, render_rental_management};
+    use ui::widgets::render_notification;
+
+    let area = frame.size();
+
+    // Main content
+    match &app.screen {
+        AppScreen::Dashboard => {
+            render_dashboard(frame, area, &app.dashboard_stats);
+        }
+        AppScreen::RentalManagement(_) => {
+            render_rental_management(
+                frame,
+                area,
+                &app.rental_state,
+                &app.lockers,
+                &app.active_rentals,
+            );
+        }
+        AppScreen::Finance(_) => {
+            render_finance(
+                frame,
+                area,
+                &app.finance_state,
+                &app.payment_summary,
+                &app.debtors,
+            );
+        }
+        AppScreen::Management(_) => {
+            render_management(
+                frame,
+                area,
+                &app.management_state,
+                &app.lockers,
+                &app.locations,
+            );
+        }
+    }
+
+    // Render notification overlay if present
+    if let Some(ref notification) = app.notification {
+        render_notification(frame, area, notification);
+    }
+
+    // Render confirmation dialog if present
+    if let Some(ref dialog) = app.confirm_dialog {
+        ui::widgets::render_confirmation_dialog(frame, area, dialog);
+    }
+}
+
 fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
+    // Global shortcuts
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return Ok(true);
     }
 
+    // Handle confirmation dialog
+    if app.confirm_dialog.is_some() {
+        return handle_dialog_key(app, key);
+    }
+
+    // Handle based on input mode
     match app.input_mode {
         InputMode::Normal => handle_normal_mode(app, key),
-        InputMode::Searching => handle_search_mode(app, key),
+        InputMode::Editing => handle_editing_mode(app, key),
     }
+}
+
+fn handle_dialog_key(app: &mut App, key: KeyEvent) -> Result<bool> {
+    match key.code {
+        KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
+            if let Some(ref mut dialog) = app.confirm_dialog {
+                dialog.toggle_selection();
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(ref dialog) = app.confirm_dialog {
+                if dialog.is_confirmed() {
+                    // Handle confirmed action based on context
+                    // This would be expanded based on the specific dialog
+                }
+            }
+            app.clear_confirm_dialog();
+        }
+        KeyCode::Esc => {
+            app.clear_confirm_dialog();
+        }
+        _ => {}
+    }
+    Ok(false)
 }
 
 fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
     match key.code {
-        KeyCode::Char('q') => return Ok(true),
+        // Global quit
+        KeyCode::Char('q') | KeyCode::Char('Q') => {
+            if matches!(app.screen, AppScreen::Dashboard) {
+                return Ok(true);
+            }
+            app.switch_screen(AppScreen::Dashboard);
+        }
+
+        // Screen navigation
+        KeyCode::Tab => {
+            app.next_tab();
+        }
+        KeyCode::BackTab => {
+            app.prev_screen();
+        }
+
+        // List navigation
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.navigate_up();
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.navigate_down();
+        }
+
+        // Dashboard shortcuts
+        KeyCode::Char('1') if matches!(app.screen, AppScreen::Dashboard) => {
+            app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::Search));
+        }
+        KeyCode::Char('2') if matches!(app.screen, AppScreen::Dashboard) => {
+            app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::List));
+        }
+        KeyCode::Char('3') if matches!(app.screen, AppScreen::Dashboard) => {
+            app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::Extend));
+        }
+        KeyCode::Char('4') if matches!(app.screen, AppScreen::Dashboard) => {
+            app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::Return));
+        }
+
+        // Search
         KeyCode::Char('/') => {
-            app.set_input_mode(InputMode::Searching);
+            app.input_mode = InputMode::Editing;
         }
-        KeyCode::Char('j') | KeyCode::Down => app.next(),
-        KeyCode::Char('k') | KeyCode::Up => app.previous(),
-        KeyCode::Char('r') => capture(app.reload()),
+
+        // Actions based on screen
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            if matches!(
+                app.screen,
+                AppScreen::Management(ManagementTab::Lockers)
+            ) {
+                if let Some(locker) = app.selected_locker() {
+                    if locker.is_damaged {
+                        app.mark_locker_repaired(locker.id)?;
+                    }
+                }
+            }
+        }
+
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            // Mark as damaged or delete (context dependent)
+            match &app.screen {
+                AppScreen::RentalManagement(RentalManagementTab::Damage) => {
+                    if let Some(locker) = app.selected_locker() {
+                        app.mark_locker_damaged(locker.id)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Refresh data
+        KeyCode::F(5) => {
+            app.reload_data()?;
+            app.show_success("Daten aktualisiert");
+        }
+
+        // Clear notification on Enter
         KeyCode::Enter => {
-            let occupant = occupant_from_search(app);
-            capture(app.assign_selected(occupant));
+            if app.notification.is_some() {
+                app.notification = None;
+            }
         }
-        KeyCode::Backspace => capture(app.release_selected()),
-        KeyCode::Char('m') => {
-            let note = note_from_search(app);
-            capture(app.toggle_maintenance(note));
+
+        KeyCode::Esc => {
+            if app.notification.is_some() {
+                app.notification = None;
+            } else {
+                app.switch_screen(AppScreen::Dashboard);
+            }
         }
+
         _ => {}
     }
 
     Ok(false)
 }
 
-fn handle_search_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
+fn handle_editing_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
     match key.code {
         KeyCode::Esc => {
             app.clear_search();
-            app.set_input_mode(InputMode::Normal);
         }
         KeyCode::Enter => {
-            app.set_input_mode(InputMode::Normal);
+            app.input_mode = InputMode::Normal;
         }
         KeyCode::Backspace => {
             app.pop_search_char();
@@ -151,28 +303,4 @@ fn handle_search_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
     }
 
     Ok(false)
-}
-
-fn capture(action: Result<()>) {
-    if let Err(err) = action {
-        eprintln!("Aktion fehlgeschlagen: {err:?}");
-    }
-}
-
-fn occupant_from_search(app: &App) -> String {
-    let trimmed = app.search_query.trim();
-    if trimmed.is_empty() {
-        DEFAULT_OCCUPANT.to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-fn note_from_search(app: &App) -> Option<String> {
-    let trimmed = app.search_query.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
