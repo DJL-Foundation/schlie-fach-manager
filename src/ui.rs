@@ -21,6 +21,9 @@ const HELP_TEXT_SEARCH: &str = "ESC: Abbrechen · Enter: Bestätigen · Eingabe 
 const HELP_TEXT_WIZARD: &str = "ESC: Abbrechen · Enter: Bestätigen · ↑↓: Auswahl";
 const HELP_TEXT_POPUP: &str = "Enter/j: Bestätigen · ESC/n: Abbrechen";
 
+// UI layout constants
+const SEARCH_PROMPT_PREFIX: &str = " / zum Suchen: ";
+
 /// Top-level render function
 pub fn render(frame: &mut Frame<'_>, app: &App) {
     let chunks = Layout::default()
@@ -275,7 +278,14 @@ fn render_location_overview(frame: &mut Frame<'_>, app: &App, area: Rect) {
 fn create_bar(pct: u16, width: usize) -> String {
     let filled = (pct as usize * width / 100).min(width);
     let empty = width - filled;
-    format!("{}{}", "█".repeat(filled), "░".repeat(empty))
+    let mut bar = String::with_capacity(width * 3); // UTF-8 chars can be up to 3 bytes
+    for _ in 0..filled {
+        bar.push('█');
+    }
+    for _ in 0..empty {
+        bar.push('░');
+    }
+    bar
 }
 
 fn render_action_items(frame: &mut Frame<'_>, app: &App, area: Rect) {
@@ -429,7 +439,7 @@ fn render_search_bar(frame: &mut Frame<'_>, app: &App, area: Rect) {
 
     let search_para = Paragraph::new(Line::from(vec![
         Span::styled(mode_label, mode_style.add_modifier(Modifier::BOLD)),
-        Span::raw(" / zum Suchen: "),
+        Span::raw(SEARCH_PROMPT_PREFIX),
         Span::styled(&app.search_query, query_style),
         if app.input_mode == InputMode::Searching {
             Span::styled("▌", Style::default().fg(Color::White))
@@ -443,7 +453,7 @@ fn render_search_bar(frame: &mut Frame<'_>, app: &App, area: Rect) {
 
     // Set cursor position for search mode
     if app.input_mode == InputMode::Searching {
-        let cursor_x = area.x + 1 + mode_label.len() as u16 + 15 + app.search_width() as u16;
+        let cursor_x = area.x + 1 + mode_label.len() as u16 + SEARCH_PROMPT_PREFIX.len() as u16 + app.search_width() as u16;
         let cursor_y = area.y + 1;
         frame.set_cursor(cursor_x, cursor_y);
     }

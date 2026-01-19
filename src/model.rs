@@ -281,8 +281,8 @@ impl Lease {
             return 0;
         }
 
-        // Roughly 365 days per year, charge 10€ per started year
-        let years_overdue = (days_overdue as f64 / 365.0).ceil() as i64;
+        // Use DAYS_PER_YEAR for billing, charge 10€ per started year
+        let years_overdue = (days_overdue as f64 / DAYS_PER_YEAR as f64).ceil() as i64;
         years_overdue * 10
     }
 
@@ -294,7 +294,7 @@ impl Lease {
 
         let years_to_add = amount_paid / 10;
         // Add years to end_date
-        self.end_date = self.end_date + chrono::Duration::days(365 * years_to_add);
+        self.end_date = self.end_date + chrono::Duration::days(DAYS_PER_YEAR * years_to_add);
         self.yearly_fee_paid_until = self.end_date;
     }
 
@@ -303,6 +303,9 @@ impl Lease {
         self.end_date < current_date
     }
 }
+
+/// Days per year (approximate, for billing purposes)
+pub const DAYS_PER_YEAR: i64 = 365;
 
 /// Financial constants
 pub const DEPOSIT_AMOUNT: i64 = 10;
@@ -485,16 +488,15 @@ mod tests {
         let end = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
         let mut lease = Lease::new(1, 1, "test.user", TenantType::Student, start, end);
 
-        // Extend by 1 year (10€) - adds 365 days
+        // Extend by 1 year (10€) - adds DAYS_PER_YEAR days
         lease.extend(10);
-        // 2025-01-01 + 365 days = 2026-01-01
-        let expected_date_1 = end + chrono::Duration::days(365);
+        let expected_date_1 = end + chrono::Duration::days(DAYS_PER_YEAR);
         assert_eq!(lease.end_date, expected_date_1);
 
-        // Extend by 2 years (20€) - adds 730 days
+        // Extend by 2 years (20€) - adds 2 * DAYS_PER_YEAR days
         let old_end = lease.end_date;
         lease.extend(20);
-        let expected_date_2 = old_end + chrono::Duration::days(730);
+        let expected_date_2 = old_end + chrono::Duration::days(2 * DAYS_PER_YEAR);
         assert_eq!(lease.end_date, expected_date_2);
     }
 
