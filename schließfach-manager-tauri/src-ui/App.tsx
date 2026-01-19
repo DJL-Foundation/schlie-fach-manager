@@ -8,6 +8,8 @@ import { RentWizard } from '@/components/wizards/RentWizard';
 import { LockersManagement } from '@/pages/management/Lockers';
 import { SettingsPage } from '@/pages/management/Settings';
 import { ExportImport } from '@/pages/management/Export';
+import { ShortcutsOverlay } from '@/components/ShortcutsOverlay';
+import { useGlobalShortcuts, useShortcutsOverlay } from '@/hooks';
 
 // Placeholder components for routes not yet implemented
 function PlaceholderPage({ title }: { title: string }) {
@@ -21,9 +23,12 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
-function App() {
+function AppContent() {
+  const { isOpen, open, close } = useShortcutsOverlay();
+  useGlobalShortcuts(open);
+
   return (
-    <BrowserRouter>
+    <>
       <Routes>
         <Route path="/" element={<MainLayout />}>
           {/* Dashboard */}
@@ -57,6 +62,15 @@ function App() {
           </Route>
         </Route>
       </Routes>
+      <ShortcutsOverlay open={isOpen} onClose={close} />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }
