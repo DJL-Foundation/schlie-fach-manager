@@ -2,7 +2,6 @@ use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     prelude::Frame,
-    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -345,16 +344,5 @@ fn render_chat_step(frame: &mut Frame, area: Rect, step: &ChatStep, dialog: &Cha
             let paragraph = Paragraph::new(lines);
             frame.render_widget(paragraph, area);
         }
-    }
-}
-
-// Helper to get primary style
-impl Theme {
-    pub fn primary_style() -> Style {
-        Style::default().fg(Self::PRIMARY).add_modifier(Modifier::BOLD)
-    }
-
-    pub fn info_style() -> Style {
-        Style::default().fg(Self::PRIMARY)
     }
 }

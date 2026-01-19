@@ -12,17 +12,15 @@ use ratatui::{
 pub fn render_dashboard(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(1)
         .constraints([
             Constraint::Length(1),  // Title
             Constraint::Min(10),    // Main content
-            Constraint::Length(2),  // Footer
         ])
         .split(area);
 
     // Title
     let title = Paragraph::new(Line::from(vec![
-        Span::styled("Schließfach-Manager v2.0", Theme::title()),
+        Span::styled("Schließfach-Manager v2.1.0", Theme::title()),
         Span::raw(" - "),
         Span::styled("Dashboard", Theme::dim()),
     ]));
@@ -34,34 +32,31 @@ pub fn render_dashboard(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunks[1]);
 
-    // Left column
+    // Left column - Fixed heights per spec
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(9),  // Belegung
-            Constraint::Min(6),     // Aktionen erforderlich
+            Constraint::Length(9),  // Belegung: Fixed 9 lines
+            Constraint::Min(6),     // Aktionen erforderlich: Min 6 lines (grows)
         ])
         .split(main_chunks[0]);
 
     render_occupancy_box(frame, left_chunks[0], stats);
     render_actions_box(frame, left_chunks[1], stats);
 
-    // Right column
+    // Right column - Fixed heights per spec
     let right_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),  // Standorte
-            Constraint::Length(6),  // Finanzen
-            Constraint::Min(5),     // Graph
+            Constraint::Length(7),  // Standorte: Fixed 7 lines
+            Constraint::Length(7),  // Finanzen: Fixed 7 lines
+            Constraint::Min(8),     // Trend: Min 8 lines (grows)
         ])
         .split(main_chunks[1]);
 
     render_locations_box(frame, right_chunks[0], stats);
     render_finance_box(frame, right_chunks[1], stats);
     render_graph_box(frame, right_chunks[2], stats);
-
-    // Footer with shortcuts
-    render_footer(frame, chunks[2]);
 }
 
 fn render_occupancy_box(frame: &mut Frame, area: Rect, stats: &DashboardStats) {

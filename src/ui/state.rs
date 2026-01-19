@@ -7,6 +7,7 @@ pub enum AppScreen {
     RentalManagement(RentalManagementTab),
     Finance(FinanceTab),
     Management(ManagementTab),
+    Screensaver,
 }
 
 impl Default for AppScreen {

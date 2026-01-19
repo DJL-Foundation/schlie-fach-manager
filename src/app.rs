@@ -1,10 +1,25 @@
 use crate::db::{lockers, queries, Database};
 use crate::models::{DashboardStats, DebtorInfo, Locker, PaymentSummary, RentalWithLocker};
+use crate::screensaver::ScreensaverScreen;
+use crate::ui::screens::create_screensaver_screen;
 use crate::ui::screens::finance::FinanceState;
 use crate::ui::screens::management::ManagementState;
 use crate::ui::screens::rental::RentalState;
 use crate::ui::state::{AppScreen, ConfirmDialog, InputMode, Notification, RentalManagementTab};
+use crate::ui::widgets::{StatusBarState, StatusMessage};
 use color_eyre::eyre::Result;
+use std::time::{Duration, Instant};
+
+/// Inactivity state for screensaver control.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InactivityState {
+    /// User is active.
+    Active,
+    /// Countdown to screensaver (seconds remaining).
+    Countdown(u64),
+    /// Screensaver is active.
+    ScreensaverActive,
+}
 
 /// Main application state machine.
 pub struct App {
@@ -32,6 +47,19 @@ pub struct App {
     // UI state
     pub notification: Option<Notification>,
     pub confirm_dialog: Option<ConfirmDialog>,
+
+    // v2.1 features
+    pub status_bar: StatusBarState,
+    pub window_switcher_active: bool,
+    pub selected_window_index: usize,
+
+    // Screensaver
+    pub last_activity: Instant,
+    pub screensaver_timeout: Duration,
+    pub countdown_duration: Duration,
+    pub screensaver_active: bool,
+    pub screensaver_screen: Option<ScreensaverScreen>,
+    pub previous_status_message: Option<StatusMessage>,
 }
 
 impl App {
@@ -54,6 +82,17 @@ impl App {
             search_query: String::new(),
             notification: None,
             confirm_dialog: None,
+            // v2.1 features
+            status_bar: StatusBarState::new(),
+            window_switcher_active: false,
+            selected_window_index: 0,
+            // Screensaver
+            last_activity: Instant::now(),
+            screensaver_timeout: Duration::from_secs(60),
+            countdown_duration: Duration::from_secs(15),
+            screensaver_active: false,
+            screensaver_screen: None,
+            previous_status_message: None,
         };
         app.reload_data()?;
         Ok(app)
@@ -89,6 +128,7 @@ impl App {
                 AppScreen::Management(crate::ui::state::ManagementTab::Lockers)
             }
             AppScreen::Management(_) => AppScreen::Dashboard,
+            AppScreen::Screensaver => AppScreen::Dashboard,
         };
         self.clear_search();
     }
@@ -106,6 +146,7 @@ impl App {
             AppScreen::Management(_) => {
                 AppScreen::Finance(crate::ui::state::FinanceTab::Overview)
             }
+            AppScreen::Screensaver => AppScreen::Dashboard,
         };
         self.clear_search();
     }
@@ -200,6 +241,9 @@ impl App {
                 // Tab from dashboard goes to rental management
                 self.next_screen();
             }
+            AppScreen::Screensaver => {
+                // Tab from screensaver does nothing
+            }
         }
     }
 
@@ -280,6 +324,90 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    /// Updates the last activity timestamp and exits screensaver if active.
+    pub fn update_activity(&mut self) {
+        self.last_activity = Instant::now();
+        if self.screensaver_active {
+            self.exit_screensaver();
+        }
+    }
+
+    /// Checks the current inactivity state.
+    pub fn check_inactivity(&self) -> InactivityState {
+        if self.screensaver_active {
+            return InactivityState::ScreensaverActive;
+        }
+
+        let elapsed = self.last_activity.elapsed();
+        let total_timeout = self.screensaver_timeout + self.countdown_duration;
+
+        if elapsed >= total_timeout {
+            InactivityState::ScreensaverActive
+        } else if elapsed >= self.screensaver_timeout {
+            let remaining = total_timeout.saturating_sub(elapsed);
+            InactivityState::Countdown(remaining.as_secs())
+        } else {
+            InactivityState::Active
+        }
+    }
+
+    /// Activates the screensaver, saving current state.
+    pub fn activate_screensaver(&mut self) {
+        if self.screensaver_active {
+            return;
+        }
+
+        // Save the current status message
+        self.previous_status_message = self.status_bar.to_widget().current_message().cloned();
+
+        // Create screensaver screen
+        self.screensaver_screen = Some(create_screensaver_screen());
+        self.screensaver_active = true;
+        self.screen = AppScreen::Screensaver;
+    }
+
+    /// Exits the screensaver and returns to Dashboard.
+    pub fn exit_screensaver(&mut self) {
+        if !self.screensaver_active {
+            return;
+        }
+
+        self.screensaver_active = false;
+        self.screensaver_screen = None;
+        self.screen = AppScreen::Dashboard;
+        self.last_activity = Instant::now();
+
+        // Restore previous status message or show welcome back message
+        if let Some(msg) = self.previous_status_message.take() {
+            self.status_bar.set_message(msg.text, msg.level);
+        } else {
+            self.status_bar.info("Willkommen zurück!");
+        }
+    }
+
+    /// Returns the current screen index for window switcher.
+    pub fn current_screen_index(&self) -> usize {
+        match &self.screen {
+            AppScreen::Dashboard => 0,
+            AppScreen::RentalManagement(_) => 1,
+            AppScreen::Finance(_) => 2,
+            AppScreen::Management(_) => 3,
+            AppScreen::Screensaver => 0,
+        }
+    }
+
+    /// Switches to screen by index (for window switcher).
+    pub fn switch_to_screen_by_index(&mut self, index: usize) {
+        let screen = match index {
+            0 => AppScreen::Dashboard,
+            1 => AppScreen::RentalManagement(RentalManagementTab::List),
+            2 => AppScreen::Finance(crate::ui::state::FinanceTab::Overview),
+            3 => AppScreen::Management(crate::ui::state::ManagementTab::Lockers),
+            _ => AppScreen::Dashboard,
+        };
+        self.switch_screen(screen);
     }
 }
 

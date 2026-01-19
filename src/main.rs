@@ -4,11 +4,12 @@
 //! For library usage, see the crate documentation.
 
 use schliessfach_manager::{
-    app::App,
+    app::{App, InactivityState},
     db::{self, Database},
     ui::{
         self,
         state::{AppScreen, InputMode, RentalManagementTab, ManagementTab},
+        widgets::{Header, KeybindBar},
     },
 };
 
@@ -24,7 +25,11 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::{
+    Terminal,
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+};
 
 /// Tick rate for the main event loop (250ms).
 const TICK_RATE: Duration = Duration::from_millis(250);
@@ -74,6 +79,14 @@ fn run_app(
         if event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    // Any keypress resets activity and exits screensaver
+                    app.update_activity();
+
+                    // If screensaver was active, just exit it (don't process key further)
+                    if app.screen == AppScreen::Screensaver {
+                        continue;
+                    }
+
                     if handle_key(app, key)? {
                         break;
                     }
@@ -87,6 +100,27 @@ fn run_app(
 
         if last_tick.elapsed() >= TICK_RATE {
             app.clear_expired_notifications();
+            app.status_bar.clear_expired_messages();
+            app.status_bar.check_escape_timeout();
+
+            // Update screensaver animation if active
+            if let Some(ref mut screen) = app.screensaver_screen {
+                screen.update();
+            }
+
+            // Check inactivity state
+            match app.check_inactivity() {
+                InactivityState::Active => {}
+                InactivityState::Countdown(secs) => {
+                    app.status_bar.show_screensaver_countdown(secs);
+                }
+                InactivityState::ScreensaverActive => {
+                    if !app.screensaver_active {
+                        app.activate_screensaver();
+                    }
+                }
+            }
+
             last_tick = Instant::now();
         }
 
@@ -99,21 +133,54 @@ fn run_app(
 }
 
 fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
-    
-    use ui::screens::{render_dashboard, render_finance, render_management, render_rental_management};
+    use ui::screens::{render_dashboard, render_finance, render_management, render_rental_management, render_screensaver};
     use ui::widgets::render_notification;
 
     let area = frame.size();
 
+    // Screensaver takes over the entire screen
+    if app.screen == AppScreen::Screensaver {
+        if let Some(ref screen) = app.screensaver_screen {
+            render_screensaver(frame, area, screen);
+        }
+        return;
+    }
+
+    // Global layout: Header (2) | Main content (dynamic) | Keybind bar (2) | Status bar (1)
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2),  // Header
+            Constraint::Min(10),    // Main content
+            Constraint::Length(2),  // Keybind bar
+            Constraint::Length(1),  // Status bar
+        ])
+        .split(area);
+
+    // Header
+    let current_screen_name = match &app.screen {
+        AppScreen::Dashboard => "Dashboard",
+        AppScreen::RentalManagement(_) => "Verleih-Management",
+        AppScreen::Finance(_) => "Finanzen",
+        AppScreen::Management(_) => "Verwaltung",
+        AppScreen::Screensaver => "Screensaver",
+    };
+
+    let header = Header::new("2.1.0")
+        .current_screen(current_screen_name)
+        .window_switcher_active(app.window_switcher_active)
+        .selected_window_index(app.selected_window_index);
+    frame.render_widget(header, chunks[0]);
+
     // Main content
     match &app.screen {
         AppScreen::Dashboard => {
-            render_dashboard(frame, area, &app.dashboard_stats);
+            render_dashboard(frame, chunks[1], &app.dashboard_stats);
         }
         AppScreen::RentalManagement(_) => {
             render_rental_management(
                 frame,
-                area,
+                chunks[1],
                 &app.rental_state,
                 &app.lockers,
                 &app.active_rentals,
@@ -122,7 +189,7 @@ fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
         AppScreen::Finance(_) => {
             render_finance(
                 frame,
-                area,
+                chunks[1],
                 &app.finance_state,
                 &app.payment_summary,
                 &app.debtors,
@@ -131,13 +198,35 @@ fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
         AppScreen::Management(_) => {
             render_management(
                 frame,
-                area,
+                chunks[1],
                 &app.management_state,
                 &app.lockers,
                 &app.locations,
             );
         }
+        AppScreen::Screensaver => {
+            // Handled above
+        }
     }
+
+    // Keybind bar
+    let keybind_bar = if app.window_switcher_active {
+        KeybindBar::new()
+            .context_binds(KeybindBar::window_switcher_context())
+            .context_message("Wähle Fenster aus")
+    } else {
+        match &app.screen {
+            AppScreen::Dashboard => {
+                KeybindBar::new().context_binds(KeybindBar::dashboard_context())
+            }
+            _ => KeybindBar::new().context_binds(KeybindBar::list_context()),
+        }
+    };
+    frame.render_widget(keybind_bar, chunks[2]);
+
+    // Status bar
+    let status_bar = app.status_bar.to_widget();
+    frame.render_widget(status_bar, chunks[3]);
 
     // Render notification overlay if present
     if let Some(ref notification) = app.notification {
@@ -193,13 +282,27 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) -> Result<bool> {
 }
 
 fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
+    // Handle window switcher mode
+    if app.window_switcher_active {
+        return handle_window_switcher(app, key);
+    }
+
     match key.code {
-        // Global quit
-        KeyCode::Char('q') | KeyCode::Char('Q') => {
+        // Global quit with Shift+Q
+        KeyCode::Char('Q') => {
+            return Ok(true);
+        }
+        KeyCode::Char('q') => {
             if matches!(app.screen, AppScreen::Dashboard) {
                 return Ok(true);
             }
             app.switch_screen(AppScreen::Dashboard);
+        }
+
+        // Window switcher activation with ^
+        KeyCode::Char('^') | KeyCode::Char('6') if key.modifiers.contains(KeyModifiers::SHIFT) => {
+            app.window_switcher_active = true;
+            app.selected_window_index = app.current_screen_index();
         }
 
         // Screen navigation
@@ -230,6 +333,9 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
         }
         KeyCode::Char('4') if matches!(app.screen, AppScreen::Dashboard) => {
             app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::Return));
+        }
+        KeyCode::Char('5') if matches!(app.screen, AppScreen::Dashboard) => {
+            app.switch_screen(AppScreen::RentalManagement(RentalManagementTab::Damage));
         }
 
         // Search
@@ -276,14 +382,55 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
             }
         }
 
+        // Handle Escape with 3x to Dashboard feature
         KeyCode::Esc => {
             if app.notification.is_some() {
                 app.notification = None;
-            } else {
-                app.switch_screen(AppScreen::Dashboard);
+                app.status_bar.reset_escape_count();
+            } else if !matches!(app.screen, AppScreen::Dashboard) {
+                // Increment escape counter
+                app.status_bar.increment_escape_count();
+
+                // Check if we should return to dashboard
+                if app.status_bar.should_return_to_dashboard() {
+                    app.switch_screen(AppScreen::Dashboard);
+                    app.status_bar.reset_escape_count();
+                    app.status_bar.success("Zurück zum Dashboard");
+                }
             }
         }
 
+        _ => {}
+    }
+
+    Ok(false)
+}
+
+fn handle_window_switcher(app: &mut App, key: KeyEvent) -> Result<bool> {
+    match key.code {
+        // Navigate to next window
+        KeyCode::Tab => {
+            let num_windows = 4; // Dashboard, Verleih-Management, Finanzen, Verwaltung
+            app.selected_window_index = (app.selected_window_index + 1) % num_windows;
+        }
+        // Navigate to previous window
+        KeyCode::BackTab => {
+            let num_windows = 4;
+            app.selected_window_index = if app.selected_window_index == 0 {
+                num_windows - 1
+            } else {
+                app.selected_window_index - 1
+            };
+        }
+        // Confirm selection
+        KeyCode::Enter => {
+            app.switch_to_screen_by_index(app.selected_window_index);
+            app.window_switcher_active = false;
+        }
+        // Cancel
+        KeyCode::Esc => {
+            app.window_switcher_active = false;
+        }
         _ => {}
     }
 

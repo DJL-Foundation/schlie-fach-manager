@@ -242,4 +242,16 @@ impl Theme {
     pub fn screensaver_fg() -> Style {
         Style::default().fg(Self::SCREENSAVER_FG)
     }
+
+    /// Style for primary elements (accent color).
+    pub fn primary_style() -> Style {
+        Style::default()
+            .fg(Self::PRIMARY)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for info elements.
+    pub fn info_style() -> Style {
+        Style::default().fg(Self::INFO)
+    }
 }
