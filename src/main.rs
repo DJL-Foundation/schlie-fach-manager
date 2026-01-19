@@ -176,6 +176,8 @@ fn render(frame: &mut Frame, app: &App) {
 
 /// Render the main content area based on the current screen
 fn render_screen_content(area: ratatui::layout::Rect, frame: &mut Frame, app: &App) {
+    use ui::screens::{RentalManagementScreen, FinancesScreen, ManagementScreen};
+    
     match app.screen() {
         AppScreen::Dashboard => {
             // Create a dashboard screen instance and load data
@@ -187,57 +189,23 @@ fn render_screen_content(area: ratatui::layout::Rect, frame: &mut Frame, app: &A
                 render_legacy_screen(area, frame, app);
             }
         }
+        AppScreen::RentalManagement(tab) => {
+            let screen = RentalManagementScreen::new(*tab);
+            screen.render(area, frame.buffer_mut(), &app.theme);
+        }
+        AppScreen::Finances => {
+            let screen = FinancesScreen::new();
+            screen.render(area, frame.buffer_mut(), &app.theme);
+        }
+        AppScreen::Management(tab) => {
+            let screen = ManagementScreen::new(*tab);
+            screen.render(area, frame.buffer_mut(), &app.theme);
+        }
         AppScreen::Screensaver => {
             // Should not reach here (screensaver is handled above)
             // But just in case, render nothing
         }
-        _ => {
-            // For other screens (RentalManagement, Finances, Management), 
-            // render placeholder for now (will be implemented in future)
-            render_placeholder_screen(area, frame, app);
-        }
     }
-}
-
-/// Render a placeholder screen for unimplemented screens
-fn render_placeholder_screen(area: ratatui::layout::Rect, frame: &mut Frame, app: &App) {
-    use ratatui::{
-        style::{Color, Style, Modifier},
-        text::{Line, Span},
-        widgets::{Block, Borders, Paragraph},
-    };
-    
-    let screen_name = match app.screen() {
-        AppScreen::RentalManagement(tab) => format!("Verleih-Management: {}", tab.name()),
-        AppScreen::Finances => "Finanzen".to_string(),
-        AppScreen::Management(tab) => format!("Verwaltung: {}", tab.name()),
-        AppScreen::Dashboard => "Dashboard".to_string(),
-        AppScreen::Screensaver => "Screensaver".to_string(),
-    };
-    
-    let content = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            format!("[ {} ]", screen_name),
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Diese Ansicht wird in einer zukünftigen Version implementiert.",
-            Style::default().fg(Color::Gray),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Drücke ESC 3x, um zum Dashboard zurückzukehren.",
-            Style::default().fg(Color::Yellow),
-        )),
-    ];
-    
-    let paragraph = Paragraph::new(content)
-        .block(Block::default().borders(Borders::ALL))
-        .alignment(ratatui::layout::Alignment::Center);
-    
-    frame.render_widget(paragraph, area);
 }
 
 /// Legacy render function for backward compatibility

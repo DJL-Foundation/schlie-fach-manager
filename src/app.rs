@@ -425,15 +425,31 @@ impl App {
     }
     
     /// Handle key on Rental Management screen
-    fn handle_rental_management_key(&mut self, key: crossterm::event::KeyCode, _tab: RentalTab) -> Result<bool> {
+    fn handle_rental_management_key(&mut self, key: crossterm::event::KeyCode, tab: RentalTab) -> Result<bool> {
         use crossterm::event::KeyCode;
         
         match key {
             KeyCode::Tab => {
-                // Switch to next tab (not implemented yet)
+                // Switch to next tab
+                let next_tab = match tab {
+                    RentalTab::Search => RentalTab::List,
+                    RentalTab::List => RentalTab::Extend,
+                    RentalTab::Extend => RentalTab::Return,
+                    RentalTab::Return => RentalTab::Damage,
+                    RentalTab::Damage => RentalTab::Search,
+                };
+                self.switch_screen(AppScreen::RentalManagement(next_tab));
             }
             KeyCode::BackTab => {
-                // Switch to previous tab (not implemented yet)
+                // Switch to previous tab
+                let prev_tab = match tab {
+                    RentalTab::Search => RentalTab::Damage,
+                    RentalTab::List => RentalTab::Search,
+                    RentalTab::Extend => RentalTab::List,
+                    RentalTab::Return => RentalTab::Extend,
+                    RentalTab::Damage => RentalTab::Return,
+                };
+                self.switch_screen(AppScreen::RentalManagement(prev_tab));
             }
             _ => {}
         }
@@ -448,8 +464,33 @@ impl App {
     }
     
     /// Handle key on Management screen
-    fn handle_management_key(&mut self, _key: crossterm::event::KeyCode, _tab: ManagementTab) -> Result<bool> {
-        // Not implemented yet
+    fn handle_management_key(&mut self, key: crossterm::event::KeyCode, tab: ManagementTab) -> Result<bool> {
+        use crossterm::event::KeyCode;
+        
+        match key {
+            KeyCode::Tab => {
+                // Switch to next tab
+                let next_tab = match tab {
+                    ManagementTab::Lockers => ManagementTab::Locations,
+                    ManagementTab::Locations => ManagementTab::Settings,
+                    ManagementTab::Settings => ManagementTab::AuditLog,
+                    ManagementTab::AuditLog => ManagementTab::Lockers,
+                };
+                self.switch_screen(AppScreen::Management(next_tab));
+            }
+            KeyCode::BackTab => {
+                // Switch to previous tab
+                let prev_tab = match tab {
+                    ManagementTab::Lockers => ManagementTab::AuditLog,
+                    ManagementTab::Locations => ManagementTab::Lockers,
+                    ManagementTab::Settings => ManagementTab::Locations,
+                    ManagementTab::AuditLog => ManagementTab::Settings,
+                };
+                self.switch_screen(AppScreen::Management(prev_tab));
+            }
+            _ => {}
+        }
+        
         Ok(false)
     }
     

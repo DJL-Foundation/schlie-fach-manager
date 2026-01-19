@@ -1,8 +1,11 @@
-// Screen modules will be implemented in future phases
-// For now, this is a placeholder to allow compilation
-
 pub mod dashboard;
+pub mod finances;
+pub mod management;
+pub mod rental_management;
 pub mod screensaver;
 
 pub use dashboard::{DashboardScreen, format_currency};
+pub use finances::FinancesScreen;
+pub use management::ManagementScreen;
+pub use rental_management::RentalManagementScreen;
 pub use screensaver::ScreensaverScreen;
