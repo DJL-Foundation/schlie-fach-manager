@@ -21,16 +21,22 @@ impl AnimationPlayer {
     /// Update the animation frame based on elapsed time
     pub fn update(&mut self) {
         let elapsed = self.last_frame_time.elapsed().as_millis() as u64;
+        let frame_count = self.animation.frames().len();
         
-        if elapsed >= self.animation.frame_delay_ms() {
-            self.current_frame = (self.current_frame + 1) % self.animation.frames().len();
+        if frame_count > 0 && elapsed >= self.animation.frame_delay_ms() {
+            self.current_frame = (self.current_frame + 1) % frame_count;
             self.last_frame_time = Instant::now();
         }
     }
     
     /// Get the current frame content
     pub fn current_frame(&self) -> &str {
-        self.animation.frames()[self.current_frame]
+        let frames = self.animation.frames();
+        if frames.is_empty() {
+            ""
+        } else {
+            frames[self.current_frame]
+        }
     }
     
     /// Get the animation width
@@ -118,5 +124,25 @@ mod tests {
         assert_eq!(player.name(), "Spinning Clock");
         assert!(player.width() > 0);
         assert!(player.height() > 0);
+    }
+
+    #[test]
+    fn test_animation_player_empty_frames_safety() {
+        // Create a mock animation with no frames
+        struct EmptyAnimation;
+        impl crate::screensaver::animations::Animation for EmptyAnimation {
+            fn name(&self) -> &str { "Empty" }
+            fn frames(&self) -> &[&str] { &[] }
+            fn frame_delay_ms(&self) -> u64 { 100 }
+            fn width(&self) -> u16 { 1 }
+            fn height(&self) -> u16 { 1 }
+        }
+        
+        let anim = Box::new(EmptyAnimation);
+        let mut player = AnimationPlayer::new(anim);
+        
+        // Should not panic with empty frames
+        player.update();
+        assert_eq!(player.current_frame(), "");
     }
 }

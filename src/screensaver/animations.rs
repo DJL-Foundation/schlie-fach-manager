@@ -17,6 +17,11 @@ pub trait Animation {
 }
 
 /// 1. Spinning Clock Animation - Emoji clocks rotating
+/// 
+/// Note: This animation uses Unicode emoji characters (🕐-🕛) which require
+/// a terminal emulator with proper UTF-8 and emoji support. Most modern terminals
+/// support these, but in case of rendering issues, consider using a different animation
+/// or a terminal with better emoji support (e.g., iTerm2, Windows Terminal, GNOME Terminal).
 pub struct SpinningClock;
 
 impl Animation for SpinningClock {
