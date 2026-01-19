@@ -1,3 +1,5 @@
+use crate::db::audit::AuditEntry;
+use crate::db::settings::AppSettings;
 use crate::models::Locker;
 use crate::ui::state::ManagementTab;
 use crate::ui::theme::Theme;
@@ -15,6 +17,20 @@ pub struct ManagementState {
     pub selected_tab: ManagementTab,
     pub lockers_selected: usize,
     pub locations_selected: usize,
+    /// Selected setting index for editing.
+    pub settings_selected: usize,
+    /// Currently editing setting (if any).
+    pub editing_setting: Option<String>,
+    /// Audit log scroll position.
+    pub audit_scroll: usize,
+    /// Audit filter: None = all, Some(entity_type) = filtered.
+    pub audit_filter: Option<String>,
+    /// Export format selection (0=TOML, 1=JSON, 2=CSV, 3=MD).
+    pub export_format: usize,
+    /// Import dialog active.
+    pub import_dialog_active: bool,
+    /// Export dialog active.
+    pub export_dialog_active: bool,
 }
 
 impl Default for ManagementTab {
@@ -52,6 +68,8 @@ pub fn render_management(
     state: &ManagementState,
     lockers: &[Locker],
     locations: &[String],
+    settings: Option<&AppSettings>,
+    audit_entries: &[AuditEntry],
 ) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -74,13 +92,13 @@ pub fn render_management(
             render_locations_tab(frame, chunks[1], state, locations, lockers);
         }
         ManagementTab::Settings => {
-            render_settings_tab(frame, chunks[1]);
+            render_settings_tab(frame, chunks[1], state, settings);
         }
         ManagementTab::AuditLog => {
-            render_audit_tab(frame, chunks[1]);
+            render_audit_tab(frame, chunks[1], state, audit_entries);
         }
         ManagementTab::Backup => {
-            render_backup_tab(frame, chunks[1]);
+            render_backup_tab(frame, chunks[1], state);
         }
     }
 
@@ -300,7 +318,7 @@ fn render_locations_tab(
     );
 }
 
-fn render_backup_tab(frame: &mut Frame, area: Rect) {
+fn render_backup_tab(frame: &mut Frame, area: Rect, state: &ManagementState) {
     let block = Block::default()
         .title(" Backup & Datenmanagement ")
         .borders(Borders::ALL)
@@ -314,8 +332,8 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
         .margin(1)
         .constraints([
             Constraint::Length(3),  // DB info
-            Constraint::Length(10), // Export
-            Constraint::Length(6),  // Import
+            Constraint::Length(12), // Export
+            Constraint::Length(8),  // Import
             Constraint::Min(1),     // Spacer
         ])
         .split(inner);
@@ -330,7 +348,7 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
     ])];
     frame.render_widget(Paragraph::new(db_info), chunks[0]);
 
-    // Export section
+    // Export section with format selection
     let export_block = Block::default()
         .title(" Export ")
         .borders(Borders::ALL)
@@ -339,32 +357,43 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
     let export_inner = export_block.inner(chunks[1]);
     frame.render_widget(export_block, chunks[1]);
 
+    let formats = ["TOML", "JSON", "CSV", "Markdown"];
+    let format_line = Line::from(vec![
+        Span::styled("Format: ", Theme::dim()),
+        Span::styled(
+            format!("[{}]", formats[state.export_format]),
+            Theme::primary_style(),
+        ),
+        Span::styled(" (← / → zum Wechseln)", Theme::dim()),
+    ]);
+
     let export_lines = vec![
+        format_line,
+        Line::from(""),
         Line::from(vec![
             Span::styled("[1]", Theme::primary_style()),
-            Span::raw(" Vollständiger Export (JSON)"),
+            Span::raw(" Vollständiger Export"),
         ]),
         Line::from(Span::styled(
             "    Alle Daten (Schließfächer, Verleih, Zahlungen, Standorte)",
             Theme::dim(),
         )),
-        Line::from(""),
         Line::from(vec![
             Span::styled("[2]", Theme::primary_style()),
-            Span::raw(" Schließfächer (CSV)"),
+            Span::raw(" Nur Schließfächer"),
         ]),
         Line::from(vec![
             Span::styled("[3]", Theme::primary_style()),
-            Span::raw(" Aktive Verleih (CSV)"),
+            Span::raw(" Nur aktive Verleih"),
         ]),
         Line::from(vec![
             Span::styled("[4]", Theme::primary_style()),
-            Span::raw(" Zahlungshistorie (CSV)"),
+            Span::raw(" Zahlungshistorie"),
         ]),
     ];
     frame.render_widget(Paragraph::new(export_lines), export_inner);
 
-    // Import section
+    // Import section with format info
     let import_block = Block::default()
         .title(" Import ")
         .borders(Borders::ALL)
@@ -376,18 +405,29 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
     let import_lines = vec![
         Line::from(vec![
             Span::styled("[5]", Theme::primary_style()),
-            Span::raw(" Vollständiger Import (JSON)"),
+            Span::raw(" Vollständiger Import (TOML/JSON)"),
         ]),
         Line::from(Span::styled(
             "    ⚠ WARNUNG: Überschreibt alle vorhandenen Daten!",
             Theme::warning(),
         )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("[6]", Theme::primary_style()),
+            Span::raw(" Schließfächer importieren (CSV)"),
+        ]),
+        Line::from(vec![
+            Span::styled("[7]", Theme::primary_style()),
+            Span::raw(" Verleih importieren (CSV)"),
+        ]),
     ];
     frame.render_widget(Paragraph::new(import_lines), import_inner);
 }
 
-/// Renders the settings tab.
-fn render_settings_tab(frame: &mut Frame, area: Rect) {
+/// Renders the settings tab with editable values from AppSettings.
+fn render_settings_tab(frame: &mut Frame, area: Rect, state: &ManagementState, settings: Option<&AppSettings>) {
+    let settings = settings.cloned().unwrap_or_default();
+
     let block = Block::default()
         .title(" Einstellungen ")
         .borders(Borders::ALL)
@@ -400,14 +440,14 @@ fn render_settings_tab(frame: &mut Frame, area: Rect) {
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(8), // Financial settings
-            Constraint::Length(6), // UI settings
-            Constraint::Length(4), // App info
-            Constraint::Min(1),    // Spacer
+            Constraint::Length(10), // Financial settings
+            Constraint::Length(6),  // UI settings
+            Constraint::Length(4),  // App info
+            Constraint::Min(1),     // Spacer
         ])
         .split(inner);
 
-    // Financial settings section
+    // Financial settings section with selection highlighting
     let financial_block = Block::default()
         .title(" Finanzielle Einstellungen ")
         .borders(Borders::ALL)
@@ -416,24 +456,38 @@ fn render_settings_tab(frame: &mut Frame, area: Rect) {
     let financial_inner = financial_block.inner(chunks[0]);
     frame.render_widget(financial_block, chunks[0]);
 
-    let financial_lines = vec![
-        Line::from(vec![
-            Span::styled("Pfandbetrag:              ", Theme::dim()),
-            Span::styled("10,00 €", Theme::normal()),
-        ]),
-        Line::from(vec![
-            Span::styled("Jahresgebühr:             ", Theme::dim()),
-            Span::styled("10,00 €", Theme::normal()),
-        ]),
-        Line::from(vec![
-            Span::styled("Berechnungszeitraum:      ", Theme::dim()),
-            Span::styled("Jährlich", Theme::normal()),
-        ]),
-        Line::from(vec![
-            Span::styled("Währung:                  ", Theme::dim()),
-            Span::styled("EUR", Theme::normal()),
-        ]),
+    // Settings with selection indicator
+    let setting_items = [
+        ("Pfandbetrag", format_cents(settings.deposit_cents)),
+        ("Jahresgebühr", format_cents(settings.yearly_fee_cents)),
+        ("Berechnungszeitraum", settings.billing_period.clone()),
+        ("Währung", settings.currency.clone()),
     ];
+
+    let financial_lines: Vec<Line> = setting_items
+        .iter()
+        .enumerate()
+        .map(|(i, (label, value))| {
+            let is_selected = state.settings_selected == i;
+            let prefix = if is_selected { "▸ " } else { "  " };
+            let label_style = if is_selected {
+                Theme::primary_style()
+            } else {
+                Theme::dim()
+            };
+            let value_style = if is_selected {
+                Theme::highlight()
+            } else {
+                Theme::normal()
+            };
+            Line::from(vec![
+                Span::styled(prefix.to_string(), label_style),
+                Span::styled(format!("{:<25}", label), label_style),
+                Span::styled(value.clone(), value_style),
+            ])
+        })
+        .collect();
+
     frame.render_widget(Paragraph::new(financial_lines), financial_inner);
 
     // UI settings section
@@ -445,22 +499,55 @@ fn render_settings_tab(frame: &mut Frame, area: Rect) {
     let ui_inner = ui_block.inner(chunks[1]);
     frame.render_widget(ui_block, chunks[1]);
 
-    let ui_lines = vec![Line::from(vec![
-        Span::styled("Screensaver Timeout:      ", Theme::dim()),
-        Span::styled("60 Sekunden", Theme::normal()),
-    ])];
+    let screensaver_selected = state.settings_selected == 4;
+    let ss_prefix = if screensaver_selected { "▸ " } else { "  " };
+    let ss_label_style = if screensaver_selected {
+        Theme::primary_style()
+    } else {
+        Theme::dim()
+    };
+    let ss_value_style = if screensaver_selected {
+        Theme::highlight()
+    } else {
+        Theme::normal()
+    };
+
+    let ui_lines = vec![
+        Line::from(vec![
+            Span::styled(ss_prefix.to_string(), ss_label_style),
+            Span::styled("Screensaver Timeout       ".to_string(), ss_label_style),
+            Span::styled(
+                format!("{} Sekunden", settings.screensaver_timeout_seconds),
+                ss_value_style,
+            ),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "[↑/↓] Auswählen | [Enter] Bearbeiten | [S] Speichern",
+            Theme::dim(),
+        )),
+    ];
     frame.render_widget(Paragraph::new(ui_lines), ui_inner);
 
     // App info section
-    let info_lines = vec![Line::from(vec![
-        Span::styled("Anwendungsversion:        ", Theme::dim()),
-        Span::styled("2.1.0", Theme::normal()),
-    ])];
+    let info_lines = vec![
+        Line::from(vec![
+            Span::styled("Anwendungsversion:        ", Theme::dim()),
+            Span::styled(settings.app_version, Theme::normal()),
+        ]),
+    ];
     frame.render_widget(Paragraph::new(info_lines), chunks[2]);
 }
 
-/// Renders the audit log tab.
-fn render_audit_tab(frame: &mut Frame, area: Rect) {
+/// Formats cents as Euro string (e.g., 1000 -> "10,00 €").
+fn format_cents(cents: i32) -> String {
+    let euros = cents / 100;
+    let remainder = (cents % 100).abs();
+    format!("{},{:02} €", euros, remainder)
+}
+
+/// Renders the audit log tab with actual entries.
+fn render_audit_tab(frame: &mut Frame, area: Rect, state: &ManagementState, entries: &[AuditEntry]) {
     let block = Block::default()
         .title(" Audit-Protokoll ")
         .borders(Borders::ALL)
@@ -478,16 +565,23 @@ fn render_audit_tab(frame: &mut Frame, area: Rect) {
         ])
         .split(inner);
 
-    // Filter info
+    // Filter info with interactive filter options
+    let filter_text = state
+        .audit_filter
+        .as_ref()
+        .map(|f| f.as_str())
+        .unwrap_or("Alle");
+
     let filter_info = Line::from(vec![
         Span::styled("Filter: ", Theme::dim()),
-        Span::styled("Alle Einträge", Theme::normal()),
+        Span::styled(format!("[{}]", filter_text), Theme::primary_style()),
         Span::styled(" | ", Theme::dim()),
-        Span::styled("Letzte 100 Einträge", Theme::dim()),
+        Span::styled(format!("{} Einträge", entries.len()), Theme::normal()),
+        Span::styled(" | [F] Filter ändern | [↑/↓] Scrollen", Theme::dim()),
     ]);
     frame.render_widget(Paragraph::new(filter_info), chunks[0]);
 
-    // Log entries placeholder
+    // Log entries list
     let log_block = Block::default()
         .title(" Aktionen ")
         .borders(Borders::ALL)
@@ -496,18 +590,55 @@ fn render_audit_tab(frame: &mut Frame, area: Rect) {
     let log_inner = log_block.inner(chunks[1]);
     frame.render_widget(log_block, chunks[1]);
 
-    let log_lines = vec![
-        Line::from(Span::styled(
-            "Keine Audit-Einträge vorhanden.",
-            Theme::dim(),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Aktionen werden hier protokolliert sobald sie ausgeführt werden.",
-            Theme::dim(),
-        )),
-    ];
-    frame.render_widget(Paragraph::new(log_lines), log_inner);
+    if entries.is_empty() {
+        let empty_lines = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "Keine Audit-Einträge vorhanden.",
+                Theme::dim(),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Aktionen werden hier protokolliert sobald sie ausgeführt werden.",
+                Theme::dim(),
+            )),
+        ];
+        frame.render_widget(Paragraph::new(empty_lines), log_inner);
+    } else {
+        // Show entries with scroll offset
+        let visible_height = log_inner.height.saturating_sub(1) as usize;
+        let start = state.audit_scroll;
+        let end = (start + visible_height).min(entries.len());
+
+        let log_lines: Vec<Line> = entries[start..end]
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let is_selected = i == 0 && state.audit_scroll == start;
+                let timestamp = entry.timestamp.format("%d.%m.%Y %H:%M").to_string();
+                let action_style = match entry.action.as_str() {
+                    "CREATE" => Theme::status_free(),
+                    "DELETE" => Theme::status_damaged(),
+                    "UPDATE" => Theme::warning(),
+                    _ => Theme::normal(),
+                };
+
+                let prefix = if is_selected { "▸ " } else { "  " };
+                Line::from(vec![
+                    Span::styled(prefix.to_string(), Theme::dim()),
+                    Span::styled(format!("{} ", timestamp), Theme::dim()),
+                    Span::styled(format!("{:<8}", entry.action), action_style),
+                    Span::styled(format!(" {} ", entry.entity_type), Theme::normal()),
+                    Span::styled(
+                        entry.details.clone().unwrap_or_default(),
+                        Theme::dim(),
+                    ),
+                ])
+            })
+            .collect();
+
+        frame.render_widget(Paragraph::new(log_lines), log_inner);
+    }
 }
 
 fn render_footer(frame: &mut Frame, area: Rect, tab: ManagementTab) {

@@ -1,4 +1,6 @@
-use crate::db::{lockers, queries, Database};
+use crate::db::audit::AuditEntry;
+use crate::db::settings::AppSettings;
+use crate::db::{audit, lockers, queries, settings, Database};
 use crate::models::{DashboardStats, DebtorInfo, Locker, PaymentSummary, RentalWithLocker};
 use crate::screensaver::ScreensaverScreen;
 use crate::ui::screens::create_screensaver_screen;
@@ -34,6 +36,10 @@ pub struct App {
     pub payment_summary: PaymentSummary,
     pub debtors: Vec<DebtorInfo>,
     pub locations: Vec<String>,
+    /// Application settings loaded from database.
+    pub settings: AppSettings,
+    /// Recent audit log entries.
+    pub audit_entries: Vec<AuditEntry>,
 
     // Screen-specific states
     pub rental_state: RentalState,
@@ -75,6 +81,8 @@ impl App {
             payment_summary: PaymentSummary::default(),
             debtors: Vec::new(),
             locations: Vec::new(),
+            settings: AppSettings::default(),
+            audit_entries: Vec::new(),
             rental_state: RentalState::new(),
             finance_state: FinanceState::new(),
             management_state: ManagementState::new(),
@@ -106,11 +114,26 @@ impl App {
         self.payment_summary = queries::get_payment_summary(&self.db.conn, None, None)?;
         self.debtors = queries::get_debtors(&self.db.conn)?;
         self.locations = lockers::list_distinct_locations(&self.db.conn)?;
+        self.settings = settings::load_settings(&self.db.conn).unwrap_or_default();
+        self.audit_entries = audit::get_audit_log(&self.db.conn, 100).unwrap_or_default();
         Ok(())
     }
 
     /// Switches to the given screen.
+    /// Also syncs the internal state (e.g., rental_state.selected_tab) when switching.
     pub fn switch_screen(&mut self, screen: AppScreen) {
+        // Sync rental_state.selected_tab when switching to RentalManagement
+        if let AppScreen::RentalManagement(tab) = &screen {
+            self.rental_state.selected_tab = *tab;
+        }
+        // Sync finance_state.selected_tab when switching to Finance
+        if let AppScreen::Finance(tab) = &screen {
+            self.finance_state.selected_tab = *tab;
+        }
+        // Sync management_state.selected_tab when switching to Management
+        if let AppScreen::Management(tab) = &screen {
+            self.management_state.selected_tab = *tab;
+        }
         self.screen = screen;
         self.clear_search();
     }
@@ -215,6 +238,7 @@ impl App {
     }
 
     /// Handles the Tab key to switch between sub-tabs.
+    /// Note: Tab does nothing on Dashboard per v2.1 spec.
     pub fn next_tab(&mut self) {
         match &self.screen {
             AppScreen::RentalManagement(_) => {
@@ -230,8 +254,7 @@ impl App {
                 self.screen = AppScreen::Management(self.management_state.selected_tab);
             }
             AppScreen::Dashboard => {
-                // Tab from dashboard goes to rental management
-                self.next_screen();
+                // Tab from dashboard does nothing per v2.1 spec
             }
             AppScreen::Screensaver => {
                 // Tab from screensaver does nothing

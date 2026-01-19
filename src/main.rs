@@ -208,6 +208,8 @@ fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
                 &app.management_state,
                 &app.lockers,
                 &app.locations,
+                Some(&app.settings),
+                &app.audit_entries,
             );
         }
         AppScreen::Screensaver => {
@@ -294,15 +296,9 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
     }
 
     match key.code {
-        // Global quit with Shift+Q
+        // Global quit with Shift+Q only (per v2.1 spec)
         KeyCode::Char('Q') => {
             return Ok(true);
-        }
-        KeyCode::Char('q') => {
-            if matches!(app.screen, AppScreen::Dashboard) {
-                return Ok(true);
-            }
-            app.switch_screen(AppScreen::Dashboard);
         }
 
         // Window switcher activation with ^
