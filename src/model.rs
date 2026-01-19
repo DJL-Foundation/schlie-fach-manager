@@ -1,106 +1,235 @@
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Operational state of a locker.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum LockerStatus {
-    Available,
-    Occupied,
-    Maintenance,
-}
-
-impl LockerStatus {
-    /// Returns `true` when the locker can be immediately assigned.
-    pub fn is_available(self) -> bool {
-        matches!(self, LockerStatus::Available)
-    }
-
-    /// Returns `true` when the locker currently holds an occupant.
-    pub fn is_occupied(self) -> bool {
-        matches!(self, LockerStatus::Occupied)
-    }
-
-    /// Returns `true` when the locker is flagged for maintenance.
-    pub fn is_blocked(self) -> bool {
-        matches!(self, LockerStatus::Maintenance)
-    }
-
-    /// Maps the status to an integer we can store inside SQLite.
-    pub fn to_db_value(self) -> i64 {
-        match self {
-            LockerStatus::Available => 0,
-            LockerStatus::Occupied => 1,
-            LockerStatus::Maintenance => 2,
-        }
-    }
-
-    /// Recreates a status from the integer persisted in SQLite.
-    pub fn from_db_value(value: i64) -> Option<Self> {
-        match value {
-            0 => Some(LockerStatus::Available),
-            1 => Some(LockerStatus::Occupied),
-            2 => Some(LockerStatus::Maintenance),
-            _ => None,
-        }
-    }
-}
-
-/// Domain aggregate for a single locker entry.
+/// Locker entity stored in the database.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Locker {
     pub id: i64,
-    pub label: String,
-    pub status: LockerStatus,
-    pub occupant: Option<String>,
-    pub note: Option<String>,
+    pub number: String,
+    pub location: String,
+    pub size: String,
+    pub is_damaged: bool,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 impl Locker {
-    pub fn new(id: i64, label: impl Into<String>) -> Self {
+    /// Creates a new locker record with sensible defaults.
+    pub fn new(
+        id: i64,
+        number: impl Into<String>,
+        location: impl Into<String>,
+        size: impl Into<String>,
+    ) -> Self {
         Self {
             id,
-            label: label.into(),
-            status: LockerStatus::Available,
-            occupant: None,
-            note: None,
+            number: number.into(),
+            location: location.into(),
+            size: size.into(),
+            is_damaged: false,
+            notes: None,
+            created_at: Utc::now(),
         }
     }
 
-    pub fn matches_query(&self, query: &str) -> bool {
-        let needle = query.to_lowercase();
-        self.label.to_lowercase().contains(&needle)
-            || self
-                .occupant
-                .as_ref()
-                .map(|name| name.to_lowercase().contains(&needle))
-                .unwrap_or(false)
-            || self
-                .note
-                .as_ref()
-                .map(|note| note.to_lowercase().contains(&needle))
-                .unwrap_or(false)
-            || self.id.to_string().contains(&needle)
+    /// Marks the locker as damaged with an optional note.
+    pub fn mark_damaged(&mut self, note: Option<String>) {
+        self.is_damaged = true;
+        if let Some(note) = note {
+            self.notes = Some(note);
+        }
     }
 
-    pub fn mark_available(&mut self) {
-        self.status = LockerStatus::Available;
-        self.occupant = None;
+    /// Clears the damaged flag, keeping the existing notes.
+    pub fn mark_repaired(&mut self) {
+        self.is_damaged = false;
+    }
+}
+
+/// Rental record representing a locker being assigned to a renter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Rental {
+    pub id: i64,
+    pub locker_id: i64,
+    pub renter_name: String,
+    pub renter_email: Option<String>,
+    pub renter_phone: Option<String>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub deposit_paid: bool,
+    pub deposit_returned: bool,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Rental {
+    /// Creates a new rental with required fields and sensible defaults.
+    pub fn new(
+        id: i64,
+        locker_id: i64,
+        renter_name: impl Into<String>,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Self {
+        Self {
+            id,
+            locker_id,
+            renter_name: renter_name.into(),
+            renter_email: None,
+            renter_phone: None,
+            start_date,
+            end_date,
+            deposit_paid: false,
+            deposit_returned: false,
+            notes: None,
+            created_at: Utc::now(),
+        }
     }
 
-    pub fn assign(&mut self, person: impl Into<String>) {
-        self.status = LockerStatus::Occupied;
-        self.occupant = Some(person.into());
+    /// Checks whether the rental is active for the given date.
+    pub fn is_active_on(&self, date: NaiveDate) -> bool {
+        self.start_date <= date && self.end_date >= date
     }
 
-    pub fn release(&mut self) {
-        self.status = LockerStatus::Available;
-        self.occupant = None;
+    /// Extends the rental end date.
+    pub fn extend_to(&mut self, new_end_date: NaiveDate) {
+        if new_end_date > self.end_date {
+            self.end_date = new_end_date;
+        }
     }
 
-    pub fn mark_maintenance(&mut self, note: impl Into<String>) {
-        self.status = LockerStatus::Maintenance;
-        self.occupant = None;
-        self.note = Some(note.into());
+    /// Marks the rental as returned on the specified date.
+    pub fn close(&mut self, return_date: NaiveDate) {
+        if return_date < self.end_date {
+            self.end_date = return_date;
+        }
+        self.deposit_returned = true;
     }
+}
+
+/// Payment record linked to a rental.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Payment {
+    pub id: i64,
+    pub rental_id: i64,
+    pub amount_cents: i64,
+    pub payment_date: NaiveDate,
+    pub payment_type: PaymentType,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Payment {
+    /// Creates a payment record with required fields.
+    pub fn new(
+        id: i64,
+        rental_id: i64,
+        amount_cents: i64,
+        payment_date: NaiveDate,
+        payment_type: PaymentType,
+    ) -> Self {
+        Self {
+            id,
+            rental_id,
+            amount_cents,
+            payment_date,
+            payment_type,
+            notes: None,
+            created_at: Utc::now(),
+        }
+    }
+}
+
+/// Location entry for grouping lockers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Location {
+    pub id: i64,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Location {
+    /// Creates a location with the current timestamp.
+    pub fn new(id: i64, name: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            created_at: Utc::now(),
+        }
+    }
+}
+
+/// Summary data used on the dashboard for each location.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocationSummary {
+    pub name: String,
+    pub occupied: usize,
+    pub total: usize,
+}
+
+/// Billing period option.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BillingPeriod {
+    Monthly,
+    Yearly,
+}
+
+impl BillingPeriod {
+    /// Returns the string representation used in settings and exports.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BillingPeriod::Monthly => "monthly",
+            BillingPeriod::Yearly => "yearly",
+        }
+    }
+
+    /// Parses a billing period from a stored string value.
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "monthly" => BillingPeriod::Monthly,
+            _ => BillingPeriod::Yearly,
+        }
+    }
+}
+
+/// Payment type value stored in the database.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PaymentType {
+    Deposit,
+    YearlyFee,
+    Other(String),
+}
+
+impl PaymentType {
+    /// Returns the database representation of the payment type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            PaymentType::Deposit => "deposit",
+            PaymentType::YearlyFee => "yearly_fee",
+            PaymentType::Other(value) => value.as_str(),
+        }
+    }
+
+    /// Parses a payment type from a stored string value.
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "deposit" => PaymentType::Deposit,
+            "yearly_fee" => PaymentType::YearlyFee,
+            other => PaymentType::Other(other.to_string()),
+        }
+    }
+}
+
+/// Audit log entry persisted to the database.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AuditEntry {
+    pub id: i64,
+    pub timestamp: DateTime<Utc>,
+    pub action: String,
+    pub entity_type: String,
+    pub entity_id: Option<i64>,
+    pub details: String,
+    pub username: String,
 }
 
 #[cfg(test)]
@@ -108,57 +237,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn matches_query_checks_label_occupant_note_and_id() {
-        let mut locker = Locker::new(42, "B-12");
-        locker.assign("Anna");
-        locker.note = Some("Defekt".into());
+    fn rental_active_range_checks_dates() {
+        let start = NaiveDate::from_ymd_opt(2025, 1, 1).expect("start date");
+        let end = NaiveDate::from_ymd_opt(2025, 1, 31).expect("end date");
+        let rental = Rental::new(1, 2, "Max", start, end);
 
-        assert!(locker.matches_query("B-12"));
-        assert!(locker.matches_query("Anna"));
-        assert!(locker.matches_query("Defekt"));
-        assert!(locker.matches_query("42"));
-        assert!(!locker.matches_query("nicht da"));
+        assert!(rental.is_active_on(start));
+        assert!(rental.is_active_on(end));
+        assert!(!rental.is_active_on(NaiveDate::from_ymd_opt(2024, 12, 31).unwrap()));
+        assert!(!rental.is_active_on(NaiveDate::from_ymd_opt(2025, 2, 1).unwrap()));
     }
 
     #[test]
-    fn assign_and_release_update_status_and_occupant() {
-        let mut locker = Locker::new(1, "A-01");
-        assert!(locker.status.is_available());
-        assert!(locker.occupant.is_none());
-
-        locker.assign("Karl");
-        assert!(locker.status.is_occupied());
-        assert_eq!(locker.occupant.as_deref(), Some("Karl"));
-
-        locker.release();
-        assert!(locker.status.is_available());
-        assert!(locker.occupant.is_none());
+    fn billing_period_roundtrip() {
+        assert_eq!(BillingPeriod::from_str("monthly"), BillingPeriod::Monthly);
+        assert_eq!(BillingPeriod::from_str("yearly"), BillingPeriod::Yearly);
+        assert_eq!(BillingPeriod::Yearly.as_str(), "yearly");
     }
 
     #[test]
-    fn mark_maintenance_sets_note_and_clears_occupant() {
-        let mut locker = Locker::new(3, "C-03");
-        locker.assign("Max");
-
-        locker.mark_maintenance("Störung");
-        assert!(locker.status.is_blocked());
-        assert_eq!(locker.note.as_deref(), Some("Störung"));
-        assert!(locker.occupant.is_none());
+    fn payment_type_roundtrip() {
+        assert_eq!(PaymentType::from_str("deposit"), PaymentType::Deposit);
+        assert_eq!(PaymentType::from_str("yearly_fee"), PaymentType::YearlyFee);
+        assert_eq!(
+            PaymentType::from_str("custom"),
+            PaymentType::Other("custom".into())
+        );
+        assert_eq!(PaymentType::Deposit.as_str(), "deposit");
     }
 
     #[test]
-    fn locker_status_db_roundtrip() {
-        let cases = [
-            (0, LockerStatus::Available),
-            (1, LockerStatus::Occupied),
-            (2, LockerStatus::Maintenance),
-        ];
+    fn locker_damage_updates_fields() {
+        let mut locker = Locker::new(1, "A-01", "Hauptgebäude", "Klein");
+        assert!(!locker.is_damaged);
 
-        for (value, status) in cases {
-            assert_eq!(LockerStatus::from_db_value(value), Some(status));
-            assert_eq!(status.to_db_value(), value);
-        }
+        locker.mark_damaged(Some("Schloss defekt".into()));
+        assert!(locker.is_damaged);
+        assert_eq!(locker.notes.as_deref(), Some("Schloss defekt"));
 
-        assert_eq!(LockerStatus::from_db_value(99), None);
+        locker.mark_repaired();
+        assert!(!locker.is_damaged);
     }
 }
