@@ -2,6 +2,7 @@ mod app;
 mod config;
 mod db;
 mod model;
+mod screensaver;
 mod ui;
 
 use std::{

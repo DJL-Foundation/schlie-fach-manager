@@ -2,5 +2,7 @@
 // For now, this is a placeholder to allow compilation
 
 pub mod dashboard;
+pub mod screensaver;
 
 pub use dashboard::DashboardScreen;
+pub use screensaver::ScreensaverScreen;
