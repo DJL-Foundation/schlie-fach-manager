@@ -99,6 +99,8 @@ impl FinanceTab {
 pub enum ManagementTab {
     Lockers,   // Schließfächer
     Locations, // Standorte
+    Settings,  // Einstellungen
+    AuditLog,  // Protokoll
     Backup,    // Backup
 }
 
@@ -107,6 +109,8 @@ impl ManagementTab {
         &[
             ManagementTab::Lockers,
             ManagementTab::Locations,
+            ManagementTab::Settings,
+            ManagementTab::AuditLog,
             ManagementTab::Backup,
         ]
     }
@@ -115,6 +119,8 @@ impl ManagementTab {
         match self {
             ManagementTab::Lockers => "Schließfächer",
             ManagementTab::Locations => "Standorte",
+            ManagementTab::Settings => "Einstellungen",
+            ManagementTab::AuditLog => "Protokoll",
             ManagementTab::Backup => "Backup",
         }
     }
@@ -123,7 +129,9 @@ impl ManagementTab {
         match self {
             ManagementTab::Lockers => 0,
             ManagementTab::Locations => 1,
-            ManagementTab::Backup => 2,
+            ManagementTab::Settings => 2,
+            ManagementTab::AuditLog => 3,
+            ManagementTab::Backup => 4,
         }
     }
 

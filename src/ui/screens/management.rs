@@ -73,6 +73,12 @@ pub fn render_management(
         ManagementTab::Locations => {
             render_locations_tab(frame, chunks[1], state, locations, lockers);
         }
+        ManagementTab::Settings => {
+            render_settings_tab(frame, chunks[1]);
+        }
+        ManagementTab::AuditLog => {
+            render_audit_tab(frame, chunks[1]);
+        }
         ManagementTab::Backup => {
             render_backup_tab(frame, chunks[1]);
         }
@@ -375,12 +381,142 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
     frame.render_widget(Paragraph::new(import_lines), import_inner);
 }
 
+/// Renders the settings tab.
+fn render_settings_tab(frame: &mut Frame, area: Rect) {
+    let block = Block::default()
+        .title(" Einstellungen ")
+        .borders(Borders::ALL)
+        .border_style(Theme::dim());
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([
+            Constraint::Length(8),  // Financial settings
+            Constraint::Length(6),  // UI settings
+            Constraint::Length(4),  // App info
+            Constraint::Min(1),     // Spacer
+        ])
+        .split(inner);
+
+    // Financial settings section
+    let financial_block = Block::default()
+        .title(" Finanzielle Einstellungen ")
+        .borders(Borders::ALL)
+        .border_style(Theme::dim());
+
+    let financial_inner = financial_block.inner(chunks[0]);
+    frame.render_widget(financial_block, chunks[0]);
+
+    let financial_lines = vec![
+        Line::from(vec![
+            Span::styled("Pfandbetrag:              ", Theme::dim()),
+            Span::styled("10,00 €", Theme::normal()),
+        ]),
+        Line::from(vec![
+            Span::styled("Jahresgebühr:             ", Theme::dim()),
+            Span::styled("10,00 €", Theme::normal()),
+        ]),
+        Line::from(vec![
+            Span::styled("Berechnungszeitraum:      ", Theme::dim()),
+            Span::styled("Jährlich", Theme::normal()),
+        ]),
+        Line::from(vec![
+            Span::styled("Währung:                  ", Theme::dim()),
+            Span::styled("EUR", Theme::normal()),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(financial_lines), financial_inner);
+
+    // UI settings section
+    let ui_block = Block::default()
+        .title(" Benutzeroberfläche ")
+        .borders(Borders::ALL)
+        .border_style(Theme::dim());
+
+    let ui_inner = ui_block.inner(chunks[1]);
+    frame.render_widget(ui_block, chunks[1]);
+
+    let ui_lines = vec![
+        Line::from(vec![
+            Span::styled("Screensaver Timeout:      ", Theme::dim()),
+            Span::styled("60 Sekunden", Theme::normal()),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(ui_lines), ui_inner);
+
+    // App info section
+    let info_lines = vec![
+        Line::from(vec![
+            Span::styled("Anwendungsversion:        ", Theme::dim()),
+            Span::styled("2.1.0", Theme::normal()),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(info_lines), chunks[2]);
+}
+
+/// Renders the audit log tab.
+fn render_audit_tab(frame: &mut Frame, area: Rect) {
+    let block = Block::default()
+        .title(" Audit-Protokoll ")
+        .borders(Borders::ALL)
+        .border_style(Theme::dim());
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([
+            Constraint::Length(2),  // Filter info
+            Constraint::Min(10),    // Log entries
+        ])
+        .split(inner);
+
+    // Filter info
+    let filter_info = Line::from(vec![
+        Span::styled("Filter: ", Theme::dim()),
+        Span::styled("Alle Einträge", Theme::normal()),
+        Span::styled(" | ", Theme::dim()),
+        Span::styled("Letzte 100 Einträge", Theme::dim()),
+    ]);
+    frame.render_widget(Paragraph::new(filter_info), chunks[0]);
+
+    // Log entries placeholder
+    let log_block = Block::default()
+        .title(" Aktionen ")
+        .borders(Borders::ALL)
+        .border_style(Theme::dim());
+
+    let log_inner = log_block.inner(chunks[1]);
+    frame.render_widget(log_block, chunks[1]);
+
+    let log_lines = vec![
+        Line::from(Span::styled(
+            "Keine Audit-Einträge vorhanden.",
+            Theme::dim(),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Aktionen werden hier protokolliert sobald sie ausgeführt werden.",
+            Theme::dim(),
+        )),
+    ];
+    frame.render_widget(Paragraph::new(log_lines), log_inner);
+}
+
 fn render_footer(frame: &mut Frame, area: Rect, tab: ManagementTab) {
     let help_text = match tab {
         ManagementTab::Lockers => {
             "[N] Neu | [B] Bulk-Erstellung | [E] Bearbeiten | [R] Repariert | [D] Löschen | [Tab] Nächster Tab"
         }
         ManagementTab::Locations => "[N] Neu | [E] Bearbeiten | [D] Löschen | [Tab] Nächster Tab",
+        ManagementTab::Settings => "[E] Bearbeiten | [S] Speichern | [Tab] Nächster Tab",
+        ManagementTab::AuditLog => "[↑/↓] Navigieren | [F] Filtern | [Tab] Nächster Tab",
         ManagementTab::Backup => "[1-5] Aktion wählen | [Tab] Nächster Tab",
     };
 

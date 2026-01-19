@@ -10,10 +10,13 @@
 //! - [`queries`]: Complex queries for statistics and reports
 //! - [`migrations`]: Database schema migrations
 //! - [`seed`]: Test data seeding
+//! - [`settings`]: Application settings management
+//! - [`audit`]: Audit logging functionality
+//! - [`history`]: Occupancy history tracking
 //!
 //! # Database Schema
 //!
-//! The database consists of five main tables:
+//! The database consists of the following main tables:
 //!
 //! ```text
 //! ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -24,6 +27,10 @@
 //!                     ┌─────────────┐
 //!                     │  audit_log  │
 //!                     └─────────────┘
+//!
+//! ┌─────────────┐     ┌──────────────────┐
+//! │  settings   │     │ occupancy_history │
+//! └─────────────┘     └──────────────────┘
 //! ```
 //!
 //! # Example
@@ -45,12 +52,15 @@
 //! - **macOS**: `~/Library/Application Support/schliessfach-manager/data.db`
 //! - **Windows**: `%APPDATA%\schliessfach-manager\data.db`
 
+pub mod audit;
 pub mod connection;
+pub mod history;
 pub mod lockers;
 pub mod migrations;
 pub mod payments;
 pub mod queries;
 pub mod rentals;
 pub mod seed;
+pub mod settings;
 
 pub use connection::Database;
