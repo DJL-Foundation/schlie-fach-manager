@@ -34,6 +34,9 @@ use ratatui::{
 /// Tick rate for the main event loop (250ms).
 const TICK_RATE: Duration = Duration::from_millis(250);
 
+/// Number of main window screens (Dashboard, Verleih-Management, Finanzen, Verwaltung).
+const NUM_WINDOWS: usize = 4;
+
 /// Main entry point for the Schließfach-Manager application.
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -410,14 +413,12 @@ fn handle_window_switcher(app: &mut App, key: KeyEvent) -> Result<bool> {
     match key.code {
         // Navigate to next window
         KeyCode::Tab => {
-            let num_windows = 4; // Dashboard, Verleih-Management, Finanzen, Verwaltung
-            app.selected_window_index = (app.selected_window_index + 1) % num_windows;
+            app.selected_window_index = (app.selected_window_index + 1) % NUM_WINDOWS;
         }
         // Navigate to previous window
         KeyCode::BackTab => {
-            let num_windows = 4;
             app.selected_window_index = if app.selected_window_index == 0 {
-                num_windows - 1
+                NUM_WINDOWS - 1
             } else {
                 app.selected_window_index - 1
             };

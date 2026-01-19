@@ -171,7 +171,7 @@ impl StatusBar {
     /// Shows a screensaver countdown message.
     pub fn show_screensaver_countdown(&mut self, seconds: u64) {
         self.set_message(
-            format!("⏱ Screensaver in {} Sekunden...", seconds),
+            format!("⏱ Bildschirmschoner in {} Sekunden...", seconds),
             StatusLevel::Info,
         );
     }
