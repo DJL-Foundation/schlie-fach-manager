@@ -124,7 +124,7 @@ impl KeybindBar {
             }
             spans.push(Span::styled(format!("[{}]", bind.key), style));
             spans.push(Span::raw(" "));
-            spans.push(Span::styled(bind.description.clone(), Theme::dim()));
+            spans.push(Span::styled(bind.description.to_string(), Theme::dim()));
         }
 
         Line::from(spans)

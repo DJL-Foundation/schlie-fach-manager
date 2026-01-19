@@ -19,6 +19,8 @@ use crate::ui::theme::Theme;
 /// When the window switcher is active, it shows prev/current/next screens.
 #[derive(Debug, Clone)]
 pub struct Header {
+    /// Application name (default: "Schließfach-Manager").
+    app_name: String,
     /// Application version string.
     version: String,
     /// Current screen name.
@@ -31,9 +33,13 @@ pub struct Header {
     selected_window_index: usize,
 }
 
+/// Default application name.
+const DEFAULT_APP_NAME: &str = "Schließfach-Manager";
+
 impl Default for Header {
     fn default() -> Self {
         Self {
+            app_name: DEFAULT_APP_NAME.to_string(),
             version: "2.1.0".to_string(),
             current_screen: "Dashboard".to_string(),
             window_switcher_active: false,
@@ -55,6 +61,12 @@ impl Header {
             version: version.into(),
             ..Default::default()
         }
+    }
+
+    /// Sets the application name.
+    pub fn app_name(mut self, name: impl Into<String>) -> Self {
+        self.app_name = name.into();
+        self
     }
 
     /// Sets the current screen name.
@@ -181,7 +193,7 @@ impl Widget for Header {
             .split(inner);
 
         // Left side: App name + version
-        let left_text = format!("Schließfach-Manager v{}", self.version);
+        let left_text = format!("{} v{}", self.app_name, self.version);
         let left_paragraph = Paragraph::new(Line::from(Span::styled(
             left_text,
             Style::default()
