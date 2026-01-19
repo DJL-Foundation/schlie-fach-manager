@@ -1,15 +1,21 @@
 [package]
 name = "schliessfach-manager"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 ratatui = "0.26"
 crossterm = "0.27"
 rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+csv = "1"
+chrono = { version = "0.4", features = ["serde"] }
 
 color-eyre = "0.6"
 
 directories = "5"
 unicode-width = "0.1"
+
+[dev-dependencies]
+rstest = "0.18"
