@@ -155,6 +155,11 @@ impl App {
         Ok(Duration::from_secs(timeout_secs as u64))
     }
     
+    /// Get access to the database
+    pub fn db(&self) -> &Database {
+        &self.db
+    }
+    
     /// Get the current screen
     pub fn screen(&self) -> &AppScreen {
         &self.screen
