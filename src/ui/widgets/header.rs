@@ -19,9 +19,9 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(version: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            version,
+            version: env!("CARGO_PKG_VERSION").to_string(),
             current_screen: "Dashboard".to_string(),
             window_switcher_active: false,
             window_list: vec![
@@ -39,11 +39,27 @@ impl Header {
         self.current_screen = screen;
     }
     
+    /// Check if window switcher is active
+    pub fn is_window_switcher_active(&self) -> bool {
+        self.window_switcher_active
+    }
+    
+    /// Toggle the window switcher
+    pub fn toggle_window_switcher(&mut self) {
+        if self.window_switcher_active {
+            self.deactivate_switcher();
+        } else {
+            self.activate_switcher();
+        }
+    }
+    
     /// Activate the window switcher
     pub fn activate_switcher(&mut self) {
         self.window_switcher_active = true;
         // Find the index of the current screen
-        if let Some(index) = self.window_list.iter().position(|s| s == &self.current_screen) {
+        if let Some(index) = self.window_list.iter().position(|s| {
+            s.starts_with(&self.current_screen.split(':').next().unwrap_or(""))
+        }) {
             self.selected_window_index = index;
         }
     }
@@ -54,17 +70,38 @@ impl Header {
     }
     
     /// Select the next window in the switcher
-    pub fn next_window(&mut self) {
+    pub fn select_next_window(&mut self) {
         self.selected_window_index = (self.selected_window_index + 1) % self.window_list.len();
     }
     
     /// Select the previous window in the switcher
-    pub fn prev_window(&mut self) {
+    pub fn select_previous_window(&mut self) {
         if self.selected_window_index == 0 {
             self.selected_window_index = self.window_list.len() - 1;
         } else {
             self.selected_window_index -= 1;
         }
+    }
+    
+    /// Confirm window selection and return the selected screen
+    pub fn confirm_window_selection(&mut self) -> Option<crate::app::AppScreen> {
+        use crate::app::{AppScreen, RentalTab, ManagementTab};
+        
+        let screen = match self.selected_window_index {
+            0 => AppScreen::Dashboard,
+            1 => AppScreen::RentalManagement(RentalTab::List),
+            2 => AppScreen::Finances,
+            3 => AppScreen::Management(ManagementTab::Lockers),
+            _ => return None,
+        };
+        
+        self.deactivate_switcher();
+        Some(screen)
+    }
+    
+    /// Cancel window switcher
+    pub fn cancel_window_switcher(&mut self) {
+        self.deactivate_switcher();
     }
     
     /// Get the currently selected window

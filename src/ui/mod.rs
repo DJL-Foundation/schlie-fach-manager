@@ -175,11 +175,12 @@ fn search_prefix_width(app: &App) -> u16 {
 
 fn render_status_line(app: &App) -> Paragraph<'_> {
     let content = app
-        .status_message
-        .as_deref()
+        .status_bar
+        .message
+        .as_ref()
         .map(|msg| {
             Span::styled(
-                msg,
+                &msg.text,
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
