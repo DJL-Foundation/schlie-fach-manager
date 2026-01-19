@@ -1,0 +1,8 @@
+# bunfig.toml
+[build]
+target = "bun"
+outdir = "./dist"
+minify = true
+
+[test]
+preload = ["./tests/helpers/test-utils.ts"]
