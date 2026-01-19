@@ -16,9 +16,10 @@ impl Default for AppScreen {
 }
 
 /// Tabs within Rental Management.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RentalManagementTab {
     Search,  // Verleihen
+    #[default]
     List,    // Liste
     Extend,  // Verlängern
     Return,  // Zurückgeben

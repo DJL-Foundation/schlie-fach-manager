@@ -218,7 +218,15 @@ pub fn get_payment_summary(
     start_date: Option<NaiveDate>,
     end_date: Option<NaiveDate>,
 ) -> Result<PaymentSummary> {
-    let start = start_date.unwrap_or(NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
+    // Use a safe default date - January 1, 2000
+    const DEFAULT_START_YEAR: i32 = 2000;
+    const DEFAULT_START_MONTH: u32 = 1;
+    const DEFAULT_START_DAY: u32 = 1;
+    
+    let start = start_date.unwrap_or_else(|| {
+        NaiveDate::from_ymd_opt(DEFAULT_START_YEAR, DEFAULT_START_MONTH, DEFAULT_START_DAY)
+            .expect("2000-01-01 is a valid date")
+    });
     let end = end_date.unwrap_or_else(|| Utc::now().date_naive());
 
     let mut stmt = conn.prepare(

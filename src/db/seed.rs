@@ -4,6 +4,9 @@ use chrono::{Duration, Utc};
 use color_eyre::eyre::Result;
 use rusqlite::Connection;
 
+/// Format pattern for locker labels (e.g., "A-001").
+const LOCKER_LABEL_FORMAT: &str = "{}-{:03}";
+
 /// Seeds the database with test data if it's empty.
 pub fn seed_test_data(conn: &Connection) -> Result<()> {
     // Check if data already exists
@@ -29,6 +32,7 @@ pub fn seed_test_data(conn: &Connection) -> Result<()> {
         };
 
         for i in 1..=locker_count {
+            // Format: "{prefix}-{number:03}" e.g., "A-001"
             let label = format!("{}-{:03}", prefix, i);
             let height = ((i - 1) as f64 / locker_count as f64 * 300.0) as i32;
             let locker = Locker::new(&label, *location, height);

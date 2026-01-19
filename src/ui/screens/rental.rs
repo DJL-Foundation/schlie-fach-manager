@@ -19,12 +19,6 @@ pub struct RentalState {
     pub filtered_indices: Vec<usize>,
 }
 
-impl Default for RentalManagementTab {
-    fn default() -> Self {
-        RentalManagementTab::List
-    }
-}
-
 impl RentalState {
     pub fn new() -> Self {
         Self::default()

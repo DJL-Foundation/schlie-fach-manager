@@ -6,6 +6,9 @@ pub enum ReturnAction {
     RequiresPayment(i32),         // More than 10€ debt, requires payment
 }
 
+/// Deposit amount in cents (10€).
+const DEPOSIT_CENTS: i32 = 1000;
+
 /// State machine states for the return locker workflow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReturnState {
@@ -160,7 +163,7 @@ impl ReturnLockerWorkflow {
 pub fn calculate_return_action(debt_cents: i32) -> ReturnAction {
     match debt_cents {
         0 => ReturnAction::AllowedWithDeposit,
-        1000 => ReturnAction::AllowedWithoutDeposit, // Exactly 10€: keep deposit
+        DEPOSIT_CENTS => ReturnAction::AllowedWithoutDeposit, // Exactly deposit amount: keep deposit
         _ => ReturnAction::RequiresPayment(debt_cents),
     }
 }

@@ -1,6 +1,12 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Average days per year (accounting for leap years).
+const DAYS_PER_YEAR: f64 = 365.25;
+
+/// Yearly extension fee in cents (10€).
+const YEARLY_FEE_CENTS: i32 = 1000;
+
 /// Type of tenant renting a locker.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TenantType {
@@ -95,8 +101,8 @@ impl Rental {
         }
 
         let days_overdue = (today - self.rental_end_date).num_days();
-        let years_overdue = (days_overdue as f64 / 365.25).ceil() as i32;
-        years_overdue * 1000 // 10€ per year in cents
+        let years_overdue = (days_overdue as f64 / DAYS_PER_YEAR).ceil() as i32;
+        years_overdue * YEARLY_FEE_CENTS
     }
 
     /// Returns the full email address for this tenant.
