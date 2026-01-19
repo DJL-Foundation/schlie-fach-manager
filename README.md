@@ -15,9 +15,21 @@ A comprehensive terminal-based locker management system (Schließfach-Manager) d
 - 📋 **Rental System**: Manage locker rentals with automatic debt calculation (10€/year overdue)
 - 💰 **Payment Tracking**: Record deposits (10€), extensions, and debt payments
 - 📊 **Dashboard**: Real-time overview of occupancy, expiring rentals, and outstanding payments
-- 📁 **Multi-Format Export**: Export data to JSON, TOML, CSV, and Markdown
+- 📁 **Multi-Format Export/Import**: Export and import data in JSON, TOML, CSV, and Markdown
 - 🖥️ **Terminal UI**: Beautiful, responsive TUI built with [ratatui](https://ratatui.rs)
 - 💾 **SQLite Storage**: Reliable local database storage
+- 🎬 **Screensaver**: Automatic ASCII animation screensaver after inactivity
+- ⌨️ **Global Keybinds**: 3× Escape to Dashboard, Window Switcher, and more
+- 📝 **Audit Logging**: Full change tracking for compliance
+
+## What's New in v2.1.0
+
+- **3× Escape to Dashboard**: Press Escape three times within 1 second to return to Dashboard from anywhere
+- **Escape Indicator `[|||]`**: Visual feedback showing escape counter in status bar
+- **Screensaver**: Auto-activates after 60s inactivity with 5 ASCII animations
+- **Window Switcher (`^`)**: Quick switching between main screens
+- **Import Module**: Full CSV import support for lockers and rentals
+- **Comprehensive Documentation**: New KEYBINDINGS.md, USER_GUIDE.md, CHANGELOG.md
 
 ## Installation
 
@@ -57,15 +69,44 @@ schliessfach-manager
 
 ### Keyboard Shortcuts
 
+#### Global Keybinds (always available)
+
 | Key | Action |
 |-----|--------|
-| `Tab` | Switch between tabs |
-| `↑`/`↓` | Navigate lists |
-| `Enter` | Select/Confirm |
+| `Tab` / `Shift+Tab` | Navigate between elements |
+| `^` (Caret) | Open Window Switcher |
+| `Shift+Q` | Quit application |
 | `Esc` | Cancel/Go back |
-| `q` | Quit (from Dashboard) |
-| `/` | Search |
-| `F5` | Refresh data |
+| `Esc` ×3 | **Return to Dashboard** (within 1 second) |
+| `Enter` | Confirm/Select |
+
+#### Dashboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `1` | New rental search |
+| `2` | Rental list |
+| `3` | Extend rental |
+| `4` | Return locker |
+| `5` | Report damage |
+
+#### Escape Indicator
+
+The status bar shows `[|||]` on the right side:
+- Each `|` lights up after pressing Escape
+- After 3 escapes within 1 second: jump to Dashboard
+- Resets after 1 second or any other key
+
+For complete keybindings documentation, see [docs/KEYBINDINGS.md](docs/KEYBINDINGS.md).
+
+### Screensaver
+
+The screensaver activates automatically after inactivity:
+
+- **Timeout**: 60 seconds (configurable in settings)
+- **Countdown**: 15 seconds warning in status bar
+- **Animations**: 5 different ASCII animations (random)
+- **Exit**: Any key returns to **Dashboard**
 
 ### Screens
 
@@ -80,7 +121,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-schliessfach-manager = "2.0"
+schliessfach-manager = "2.1"
 ```
 
 ### Example
@@ -119,9 +160,9 @@ The system supports multiple export formats:
 
 | Format | Export | Import | Use Case |
 |--------|--------|--------|----------|
+| **TOML** (default) | ✓ | ✓ | Human-readable backup/restore |
 | JSON | ✓ | ✓ | Full backup/restore |
-| TOML | ✓ | ✓ | Human-readable configuration |
-| CSV | ✓ | ✗ | Spreadsheet analysis |
+| CSV | ✓ | ✓ | Spreadsheet analysis, bulk import |
 | Markdown | ✓ | ✗ | Reports and documentation |
 
 ### Export Example
@@ -130,11 +171,28 @@ The system supports multiple export formats:
 use schliessfach_manager::export::{export_full_backup, export_full_backup_toml};
 use std::path::Path;
 
+// Export to TOML (recommended)
+export_full_backup_toml(&lockers, &rentals, &payments, &locations, Path::new("backup.toml"))?;
+
 // Export to JSON
 export_full_backup(&lockers, &rentals, &payments, &locations, Path::new("backup.json"))?;
+```
 
-// Export to TOML (human-readable)
-export_full_backup_toml(&lockers, &rentals, &payments, &locations, Path::new("backup.toml"))?;
+### Import Example
+
+```rust
+use schliessfach_manager::import::{import_full_backup_json, import_lockers_csv, ImportStats};
+use schliessfach_manager::db::Database;
+use std::path::Path;
+
+let db = Database::open(Path::new("data.db"))?;
+
+// Import from JSON
+let stats: ImportStats = import_full_backup_json(&db.conn, Path::new("backup.json"))?;
+println!("Imported {} lockers", stats.lockers_imported);
+
+// Import lockers from CSV
+let count = import_lockers_csv(&db.conn, Path::new("lockers.csv"))?;
 ```
 
 ## Domain Model
@@ -205,6 +263,13 @@ The project uses GitHub Actions for:
 
 - **CI**: Build, test, lint (rustfmt, clippy), security audit
 - **Release**: Automated publishing to crates.io and GitHub releases
+
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)**: Comprehensive user documentation
+- **[Keybindings](docs/KEYBINDINGS.md)**: Complete keyboard shortcuts reference
+- **[Changelog](docs/CHANGELOG.md)**: Version history and release notes
+- **[API Documentation](https://docs.rs/schliessfach-manager)**: Rust API reference
 
 ## Contributing
 

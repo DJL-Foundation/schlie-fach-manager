@@ -190,6 +190,7 @@ pub mod app;
 pub mod config;
 pub mod db;
 pub mod export;
+pub mod import;
 pub mod models;
 pub mod screensaver;
 pub mod ui;
