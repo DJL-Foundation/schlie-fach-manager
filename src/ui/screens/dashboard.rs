@@ -5,7 +5,7 @@ use ratatui::{
     prelude::Frame,
     style::Stylize,
     text::{Line, Span},
-    widgets::{Bar, BarChart, BarGroup, Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph},
 };
 
 /// Renders the dashboard screen.

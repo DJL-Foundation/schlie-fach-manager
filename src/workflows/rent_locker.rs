@@ -1,4 +1,4 @@
-use crate::models::{Locker, TenantType};
+use crate::models::TenantType;
 use chrono::NaiveDate;
 
 /// State machine states for the rent locker workflow.
@@ -109,7 +109,7 @@ impl RentLockerWorkflow {
             RentState::ChooseHeight => RentState::ChooseLocation,
             RentState::SelectLocker { .. } => RentState::ChooseHeight,
             RentState::ConfirmLocker { .. } => {
-                if let Some((min, max)) = self.selected_height_range {
+                if let Some((_min, _max)) = self.selected_height_range {
                     // Would need to reload available lockers
                     RentState::ChooseHeight
                 } else {

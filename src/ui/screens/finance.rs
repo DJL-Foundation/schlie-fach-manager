@@ -166,7 +166,7 @@ fn render_overview_tab(
     let extensions_euros = summary.extensions_cents as f64 / 100.0;
     let returns_euros = summary.deposit_returns_cents as f64 / 100.0;
     let total_euros = summary.total_cents as f64 / 100.0;
-    let net_euros = summary.net_cents as f64 / 100.0;
+    let _net_euros = summary.net_cents as f64 / 100.0;
 
     let einnahmen_block = Block::default()
         .title(format!(" Einnahmen (Zeitraum: {}) ", state.time_period.label()))

@@ -1,4 +1,4 @@
-use crate::db::{lockers, queries, rentals, Database};
+use crate::db::{lockers, queries, Database};
 use crate::models::{DashboardStats, DebtorInfo, Locker, PaymentSummary, RentalWithLocker};
 use crate::ui::screens::finance::FinanceState;
 use crate::ui::screens::management::ManagementState;

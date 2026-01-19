@@ -1,4 +1,4 @@
-use crate::models::{Locker, Rental, RentalWithLocker};
+use crate::models::{Locker, RentalWithLocker};
 use crate::ui::state::{InputMode, RentalManagementTab};
 use crate::ui::theme::Theme;
 use crate::ui::widgets::{render_table_with_detail, ColumnDef};

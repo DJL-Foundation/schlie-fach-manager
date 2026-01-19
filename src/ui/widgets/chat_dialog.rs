@@ -4,7 +4,7 @@ use ratatui::{
     prelude::Frame,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
 
 /// Chat step types.

@@ -8,7 +8,7 @@ use schliessfach_manager::{
     db::{self, Database},
     ui::{
         self,
-        state::{AppScreen, InputMode, RentalManagementTab, FinanceTab, ManagementTab},
+        state::{AppScreen, InputMode, RentalManagementTab, ManagementTab},
     },
 };
 
@@ -99,7 +99,7 @@ fn run_app(
 }
 
 fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
-    use ratatui::layout::{Constraint, Direction, Layout};
+    
     use ui::screens::{render_dashboard, render_finance, render_management, render_rental_management};
     use ui::widgets::render_notification;
 
