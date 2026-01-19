@@ -23,7 +23,7 @@ use model::Locker;
 use ratatui::{Terminal, backend::CrosstermBackend, Frame};
 use ui::{InactivityState, screens::dashboard::DashboardScreen};
 
-const TICK_RATE: Duration = Duration::from_millis(16); // ~60 FPS for smooth animations
+const TICK_RATE: Duration = Duration::from_millis(33); // ~30 FPS for smooth animations
 const DEFAULT_OCCUPANT: &str = "Unbekannt";
 
 fn main() -> Result<()> {

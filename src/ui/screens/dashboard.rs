@@ -134,12 +134,13 @@ impl DashboardData {
         let pending_payments_cents: i64 = 0;
         
         // Revenue last 30 days
+        // COALESCE ensures this never returns NULL, so we can safely unwrap
         let revenue_30d_cents: i64 = conn.query_row(
             "SELECT COALESCE(SUM(amount_cents), 0) FROM payments 
              WHERE payment_date >= date('now', '-30 days')",
             [],
             |row| row.get(0),
-        ).unwrap_or(0);
+        )?;
         
         // Occupancy history (last 12 months)
         let occupancy_history = Self::load_occupancy_history(conn)?;
