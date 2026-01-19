@@ -1,181 +1,70 @@
-use crate::{
-    app::{App, InputMode},
-    model::LockerStatus,
-};
+pub mod screens;
+pub mod state;
+pub mod theme;
+pub mod widgets;
+
+use crate::app::{App, AppScreen};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout},
-    prelude::Frame,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
 };
-use unicode_width::UnicodeWidthStr;
 
-const SEARCH_PROMPT: &str = "Suche (/ zum Start, ENTER zum Bestätigen, ESC zum Abbrechen)";
+/// Top-level render function that lays out the global UI regions.
+pub fn render(frame: &mut Frame<'_>, app: &mut App) {
+    let theme = app.theme();
 
-/// Top-level render function that lays out the three major UI regions.
-pub fn render(frame: &mut Frame<'_>, app: &App) {
+    if app.screensaver_active() {
+        app.screensaver_screen().render(frame, theme);
+        return;
+    }
+
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // search bar
-            Constraint::Min(5),    // locker list
-            Constraint::Length(1), // status line
+            Constraint::Length(2), // header
+            Constraint::Min(1),    // main content
+            Constraint::Length(3), // keybind bar
+            Constraint::Length(1), // status bar
         ])
-        .split(frame.size());
+        .split(frame.area());
 
-    frame.render_widget(render_search_bar(app), areas[0]);
+    app.header_widget()
+        .render(areas[0], frame.buffer_mut(), theme);
 
-    if matches!(app.input_mode, InputMode::Searching) {
-        let cursor_x = areas[0].x + 1 + search_prefix_width(app) + 1 + app.search_width() as u16;
-        let cursor_y = areas[0].y + 1;
-        frame.set_cursor(cursor_x, cursor_y);
+    match app.screen() {
+        AppScreen::Dashboard => {
+            if let Ok(data) = screens::dashboard::DashboardData::load(app.db(), app.settings()) {
+                screens::dashboard::render(areas[1], frame.buffer_mut(), &data, theme);
+            }
+        }
+        AppScreen::RentalManagement(tab) => {
+            let workflow = app.active_workflow();
+            let _ = screens::rental_management::render(
+                areas[1],
+                frame.buffer_mut(),
+                tab,
+                workflow,
+                app.db(),
+                theme,
+            );
+        }
+        AppScreen::Finances => {
+            let _ = screens::finances::render(areas[1], frame.buffer_mut(), app.db(), theme);
+        }
+        AppScreen::Management(tab) => {
+            let _ = screens::management::render(
+                areas[1],
+                frame.buffer_mut(),
+                tab,
+                app.settings_editor(),
+                app.db(),
+                theme,
+            );
+        }
+        AppScreen::Screensaver => {}
     }
 
-    frame.render_widget(render_locker_table(app), areas[1]);
-    frame.render_widget(render_status_line(app), areas[2]);
-}
-
-fn render_search_bar(app: &App) -> Paragraph<'_> {
-    let (mode_label, mode_style) = match app.input_mode {
-        InputMode::Normal => (
-            " NORMAL ",
-            Style::default().fg(Color::Black).bg(Color::Gray),
-        ),
-        InputMode::Searching => (
-            " SEARCH ",
-            Style::default().fg(Color::Black).bg(Color::Yellow),
-        ),
-    };
-
-    let prompt = Span::styled(SEARCH_PROMPT, Style::default().fg(Color::Gray));
-
-    let query_style = if app.input_mode == InputMode::Searching {
-        Style::default()
-            .fg(Color::White)
-            .add_modifier(Modifier::UNDERLINED)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    Paragraph::new(Line::from(vec![
-        Span::styled(mode_label, mode_style.add_modifier(Modifier::BOLD)),
-        Span::raw(" "),
-        prompt,
-        Span::styled(format!(" {}", app.search_query), query_style),
-    ]))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title("Filter")
-            .title_alignment(ratatui::layout::Alignment::Left),
-    )
-}
-
-fn render_locker_table<'a>(app: &'a App) -> Table<'a> {
-    let header = Row::new(vec![
-        header_cell("ID"),
-        header_cell("Bezeichnung"),
-        header_cell("Status"),
-        header_cell("Belegt durch"),
-        header_cell("Notiz"),
-    ]);
-
-    let selected_idx = app.selected_index();
-
-    let rows: Vec<Row<'a>> = app
-        .visible_lockers()
-        .enumerate()
-        .map(|(idx, locker)| {
-            let mut row = Row::new(vec![
-                Cell::from(locker.id.to_string()),
-                Cell::from(locker.label.clone()),
-                status_cell(locker.status),
-                Cell::from(locker.occupant.clone().unwrap_or_else(|| "-".into())),
-                Cell::from(locker.note.clone().unwrap_or_else(|| "-".into())),
-            ]);
-
-            if Some(idx) == selected_idx {
-                row = row.style(
-                    Style::default()
-                        .bg(Color::DarkGray)
-                        .fg(Color::White)
-                        .add_modifier(Modifier::BOLD),
-                );
-            }
-
-            row
-        })
-        .collect();
-
-    Table::new(
-        rows,
-        [
-            Constraint::Length(6),
-            Constraint::Percentage(30),
-            Constraint::Length(14),
-            Constraint::Percentage(30),
-            Constraint::Percentage(30),
-        ],
-    )
-    .header(header)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(format!("Schließfächer ({} Treffer)", app.visible_count())),
-    )
-    .column_spacing(2)
-}
-
-fn header_cell(text: &str) -> Cell<'_> {
-    Cell::from(Span::styled(
-        text,
-        Style::default()
-            .fg(Color::Cyan)
-            .add_modifier(Modifier::BOLD),
-    ))
-}
-
-fn status_cell(status: LockerStatus) -> Cell<'static> {
-    let (label, color) = match status {
-        LockerStatus::Available => ("frei", Color::Green),
-        LockerStatus::Occupied => ("belegt", Color::Yellow),
-        LockerStatus::Maintenance => ("wartung", Color::Red),
-    };
-
-    Cell::from(Span::styled(
-        label,
-        Style::default().fg(color).add_modifier(Modifier::BOLD),
-    ))
-}
-
-fn search_prefix_width(app: &App) -> u16 {
-    let mode_label = match app.input_mode {
-        InputMode::Normal => " NORMAL ",
-        InputMode::Searching => " SEARCH ",
-    };
-    let prefix = format!("{} {}", mode_label, SEARCH_PROMPT);
-    UnicodeWidthStr::width(prefix.as_str()) as u16
-}
-
-fn render_status_line(app: &App) -> Paragraph<'_> {
-    let content = app
-        .status_message
-        .as_deref()
-        .map(|msg| {
-            Span::styled(
-                msg,
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            )
-        })
-        .unwrap_or_else(|| {
-            Span::styled(
-                "q: Beenden · Enter: belegen · Backspace: freigeben · m: Wartung umschalten · /: suchen",
-                Style::default().fg(Color::DarkGray),
-            )
-        });
-
-    Paragraph::new(Line::from(vec![content]))
+    app.keybind_bar()
+        .render(areas[2], frame.buffer_mut(), theme);
+    app.status_bar().render(areas[3], frame.buffer_mut(), theme);
 }

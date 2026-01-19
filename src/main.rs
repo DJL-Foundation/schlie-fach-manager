@@ -1,50 +1,61 @@
 mod app;
 mod config;
 mod db;
+mod export;
+mod import;
 mod model;
+mod screensaver;
 mod ui;
+mod workflows;
 
-use std::{
-    io::stdout,
-    time::{Duration, Instant},
-};
-
-use app::{App, InputMode};
-use color_eyre::eyre::Result;
+use anyhow::{Result, anyhow};
+use app::{App, AppAction, InactivityState};
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    event::{self, Event, KeyEventKind},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use db::Database;
 use model::Locker;
 use ratatui::{Terminal, backend::CrosstermBackend};
+use std::{
+    io::stdout,
+    time::{Duration, Instant},
+};
 
 const TICK_RATE: Duration = Duration::from_millis(250);
-const DEFAULT_OCCUPANT: &str = "Unbekannt";
 
+/// Application entry point.
 fn main() -> Result<()> {
-    color_eyre::install()?;
+    color_eyre::install().map_err(|err| anyhow!(err))?;
 
-    let mut db = Database::open_default()?;
-    db.seed_if_empty(&default_seed())?;
+    let db = Database::open_default()?;
+    seed_if_empty(&db)?;
 
-    let app = App::new(db)?;
-    start_terminal(app)
+    let mut app = App::new(db)?;
+    start_terminal(&mut app)
 }
 
-fn default_seed() -> Vec<Locker> {
-    vec![
-        Locker::new(1, "A-01"),
-        Locker::new(2, "A-02"),
-        Locker::new(3, "B-01"),
-        Locker::new(4, "B-02"),
-        Locker::new(5, "C-01"),
-    ]
+/// Seeds the database with default lockers if needed.
+fn seed_if_empty(db: &Database) -> Result<()> {
+    if db::lockers::count_lockers(db.connection())? == 0 {
+        let seed = vec![
+            Locker::new(1, "A-01", "Hauptgebäude", "Klein"),
+            Locker::new(2, "A-02", "Hauptgebäude", "Klein"),
+            Locker::new(3, "B-01", "Nebengebäude", "Mittel"),
+            Locker::new(4, "B-02", "Nebengebäude", "Mittel"),
+            Locker::new(5, "C-01", "Keller", "Groß"),
+        ];
+        for locker in seed {
+            db::lockers::upsert_locker(db.connection(), &locker)?;
+        }
+    }
+    Ok(())
 }
 
-fn start_terminal(mut app: App) -> Result<()> {
+/// Starts the terminal UI runtime.
+fn start_terminal(app: &mut App) -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen, Hide)?;
@@ -53,7 +64,7 @@ fn start_terminal(mut app: App) -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-    let result = run_app(&mut terminal, &mut app);
+    let result = run_app(&mut terminal, app);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, Show)?;
@@ -62,6 +73,7 @@ fn start_terminal(mut app: App) -> Result<()> {
     result
 }
 
+/// Runs the main event loop and rendering logic.
 fn run_app(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     app: &mut App,
@@ -69,6 +81,16 @@ fn run_app(
     let mut last_tick = Instant::now();
 
     loop {
+        match app.check_inactivity() {
+            InactivityState::Active => {}
+            InactivityState::Countdown(seconds) => {
+                app.status_bar_mut().show_screensaver_countdown(seconds);
+            }
+            InactivityState::ScreensaverActive => {
+                app.activate_screensaver();
+            }
+        }
+
         terminal.draw(|frame| ui::render(frame, app))?;
 
         let timeout = TICK_RATE
@@ -76,17 +98,20 @@ fn run_app(
             .unwrap_or(Duration::from_millis(0));
 
         if event::poll(timeout)? {
-            match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    if handle_key(app, key)? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    app.update_activity();
+                    if app.screensaver_active() {
+                        app.exit_screensaver();
+                    } else if matches!(app.handle_key(key)?, AppAction::Quit) {
                         break;
                     }
                 }
-                Event::Resize(_, _) => {
-                    // force UI redraw on next iteration
-                }
-                _ => {}
             }
+        }
+
+        if app.screensaver_active() {
+            app.screensaver_screen_mut().update();
         }
 
         if last_tick.elapsed() >= TICK_RATE {
@@ -95,84 +120,4 @@ fn run_app(
     }
 
     Ok(())
-}
-
-fn handle_key(app: &mut App, key: KeyEvent) -> Result<bool> {
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-        return Ok(true);
-    }
-
-    match app.input_mode {
-        InputMode::Normal => handle_normal_mode(app, key),
-        InputMode::Searching => handle_search_mode(app, key),
-    }
-}
-
-fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
-    match key.code {
-        KeyCode::Char('q') => return Ok(true),
-        KeyCode::Char('/') => {
-            app.set_input_mode(InputMode::Searching);
-        }
-        KeyCode::Char('j') | KeyCode::Down => app.next(),
-        KeyCode::Char('k') | KeyCode::Up => app.previous(),
-        KeyCode::Char('r') => capture(app.reload()),
-        KeyCode::Enter => {
-            let occupant = occupant_from_search(app);
-            capture(app.assign_selected(occupant));
-        }
-        KeyCode::Backspace => capture(app.release_selected()),
-        KeyCode::Char('m') => {
-            let note = note_from_search(app);
-            capture(app.toggle_maintenance(note));
-        }
-        _ => {}
-    }
-
-    Ok(false)
-}
-
-fn handle_search_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
-    match key.code {
-        KeyCode::Esc => {
-            app.clear_search();
-            app.set_input_mode(InputMode::Normal);
-        }
-        KeyCode::Enter => {
-            app.set_input_mode(InputMode::Normal);
-        }
-        KeyCode::Backspace => {
-            app.pop_search_char();
-        }
-        KeyCode::Char(ch) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-            app.push_search_char(ch);
-        }
-        _ => {}
-    }
-
-    Ok(false)
-}
-
-fn capture(action: Result<()>) {
-    if let Err(err) = action {
-        eprintln!("Aktion fehlgeschlagen: {err:?}");
-    }
-}
-
-fn occupant_from_search(app: &App) -> String {
-    let trimmed = app.search_query.trim();
-    if trimmed.is_empty() {
-        DEFAULT_OCCUPANT.to_string()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-fn note_from_search(app: &App) -> Option<String> {
-    let trimmed = app.search_query.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
