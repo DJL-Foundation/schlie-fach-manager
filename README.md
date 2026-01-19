@@ -1,1 +1,0 @@
-# schließfach-manager
