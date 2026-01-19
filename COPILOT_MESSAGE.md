@@ -1,6 +1,6 @@
 # Nachricht an Copilot
 
-Lies dir die **v2.2 spec.md** vollständig und gründlich durch.
+Lies dir die **v2.1 spec.md** vollständig und gründlich durch.
 
 **WICHTIG:** Achte darauf, dass du **wirklich ALLES** aus der Spezifikation implementierst:
 
@@ -40,6 +40,6 @@ Lies dir die **v2.2 spec.md** vollständig und gründlich durch.
 - [ ] Keine TODOs/PLACEHOLDERs mehr?
 - [ ] Spec-Punkte in PR-Beschreibung gemappt?
 
-🎯 **Ziel:** Eine vollständige, robuste, gut dokumentierte und getestete Implementierung nach v2.2 Spec.
+🎯 **Ziel:** Eine vollständige, robuste, gut dokumentierte und getestete Implementierung nach v2.1 Spec.
 
 **Viel Erfolg! 🚀**
