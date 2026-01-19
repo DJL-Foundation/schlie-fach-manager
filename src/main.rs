@@ -1,17 +1,22 @@
-mod app;
-mod config;
-mod db;
-mod export;
-mod models;
-mod ui;
-mod workflows;
+//! Schließfach-Manager - Terminal-based Locker Management System
+//!
+//! This is the main binary entry point for the Schließfach-Manager application.
+//! For library usage, see the crate documentation.
+
+use schliessfach_manager::{
+    app::App,
+    db::{self, Database},
+    ui::{
+        self,
+        state::{AppScreen, InputMode, RentalManagementTab, FinanceTab, ManagementTab},
+    },
+};
 
 use std::{
     io::stdout,
     time::{Duration, Instant},
 };
 
-use app::App;
 use color_eyre::eyre::Result;
 use crossterm::{
     cursor::{Hide, Show},
@@ -19,12 +24,12 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use db::Database;
 use ratatui::{Terminal, backend::CrosstermBackend};
-use ui::state::{AppScreen, InputMode, RentalManagementTab, FinanceTab, ManagementTab};
 
+/// Tick rate for the main event loop (250ms).
 const TICK_RATE: Duration = Duration::from_millis(250);
 
+/// Main entry point for the Schließfach-Manager application.
 fn main() -> Result<()> {
     color_eyre::install()?;
 

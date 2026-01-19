@@ -1,19 +1,87 @@
+//! Locker domain model and related types.
+//!
+//! This module contains the [`Locker`] struct representing a physical storage locker
+//! and related types like [`HeightCategory`] for categorizing lockers by height.
+//!
+//! # Example
+//!
+//! ```rust
+//! use schliessfach_manager::models::Locker;
+//!
+//! // Create a new locker
+//! let mut locker = Locker::new("A-001", "Hauptgebäude", 150);
+//!
+//! // Check properties
+//! assert_eq!(locker.label, "A-001");
+//! assert!(!locker.is_damaged);
+//!
+//! // Mark as damaged
+//! locker.mark_damaged();
+//! assert!(locker.is_damaged);
+//! ```
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Domain model for a single locker entry.
+/// A physical storage locker that can be rented by tenants.
+///
+/// Lockers are identified by their unique label (e.g., "A-001") and belong
+/// to a specific location (e.g., "Hauptgebäude", "Turnhalle").
+///
+/// # Fields
+///
+/// * `id` - Database identifier (auto-assigned on save)
+/// * `label` - Unique human-readable identifier (e.g., "A-001")
+/// * `location` - Physical location name
+/// * `height` - Height in centimeters
+/// * `is_damaged` - Whether the locker is currently marked as damaged
+/// * `created_at` - Timestamp when the locker was created
+///
+/// # Example
+///
+/// ```rust
+/// use schliessfach_manager::models::Locker;
+///
+/// let locker = Locker::new("B-042", "Turnhalle", 120);
+/// println!("Locker {} at {} is {} cm tall",
+///     locker.label, locker.location, locker.height);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Locker {
+    /// Database identifier (auto-assigned on save).
     pub id: i64,
+    /// Unique human-readable label (e.g., "A-001").
     pub label: String,
+    /// Physical location name (e.g., "Hauptgebäude", "Turnhalle").
     pub location: String,
+    /// Height in centimeters.
     pub height: i32,
+    /// Whether the locker is currently marked as damaged.
     pub is_damaged: bool,
+    /// Timestamp when the locker was created.
     pub created_at: DateTime<Utc>,
 }
 
 impl Locker {
     /// Creates a new locker with the given parameters.
+    ///
+    /// The locker is created with `is_damaged` set to `false` and
+    /// `created_at` set to the current time.
+    ///
+    /// # Arguments
+    ///
+    /// * `label` - Unique identifier for the locker (e.g., "A-001")
+    /// * `location` - Physical location name
+    /// * `height` - Height in centimeters
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use schliessfach_manager::models::Locker;
+    ///
+    /// let locker = Locker::new("C-010", "Neubau", 180);
+    /// assert_eq!(locker.label, "C-010");
+    /// ```
     pub fn new(label: impl Into<String>, location: impl Into<String>, height: i32) -> Self {
         Self {
             id: 0,
@@ -26,11 +94,15 @@ impl Locker {
     }
 
     /// Marks the locker as damaged.
+    ///
+    /// Damaged lockers should not be rented out until repaired.
     pub fn mark_damaged(&mut self) {
         self.is_damaged = true;
     }
 
     /// Marks the locker as repaired.
+    ///
+    /// The locker becomes available for rental again.
     pub fn mark_repaired(&mut self) {
         self.is_damaged = false;
     }

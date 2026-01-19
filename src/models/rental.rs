@@ -1,3 +1,41 @@
+//! Rental domain model and related types.
+//!
+//! This module contains the [`Rental`] struct representing a rental agreement
+//! between a tenant and a locker, and the [`TenantType`] enum for categorizing tenants.
+//!
+//! # Rental Lifecycle
+//!
+//! 1. **Creation**: Tenant rents a locker, pays deposit
+//! 2. **Active**: Rental is within its valid period
+//! 3. **Expiring**: Rental end date is approaching (< 30 days)
+//! 4. **Overdue**: Rental has passed its end date, debt accumulates
+//! 5. **Returned**: Locker is returned, deposit handled based on debt
+//!
+//! # Debt Calculation
+//!
+//! Debt accumulates at 10€ per year (or partial year) that the rental is overdue:
+//! - 1 day overdue = 10€ debt
+//! - 366 days overdue = 20€ debt
+//!
+//! # Example
+//!
+//! ```rust
+//! use schliessfach_manager::models::{Rental, TenantType};
+//! use chrono::{Duration, Utc};
+//!
+//! let today = Utc::now().date_naive();
+//! let rental = Rental::new(
+//!     1,                              // locker_id
+//!     "max.mustermann",               // username
+//!     TenantType::Schüler,            // tenant type
+//!     today,                          // start date
+//!     today + Duration::days(365),    // end date (1 year)
+//! );
+//!
+//! assert_eq!(rental.days_until_expiration(), 365);
+//! assert!(!rental.is_overdue());
+//! ```
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -8,9 +46,27 @@ const DAYS_PER_YEAR: f64 = 365.25;
 const YEARLY_FEE_CENTS: i32 = 1000;
 
 /// Type of tenant renting a locker.
+///
+/// In the German school system, lockers are rented by:
+/// - **Schüler** (Students): Typically pay lower fees
+/// - **Lehrer** (Teachers): Staff members
+///
+/// # Example
+///
+/// ```rust
+/// use schliessfach_manager::models::TenantType;
+///
+/// let student = TenantType::Schüler;
+/// let teacher = TenantType::Lehrer;
+///
+/// assert_eq!(student.as_str(), "Schüler");
+/// assert_eq!(teacher.as_str(), "Lehrer");
+/// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TenantType {
+    /// Student tenant (German: Schüler).
     Schüler,
+    /// Teacher tenant (German: Lehrer).
     Lehrer,
 }
 
@@ -24,6 +80,11 @@ impl TenantType {
     }
 
     /// Parses from a string representation.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(TenantType)` if the string matches "Schüler" or "Lehrer"
+    /// * `None` if the string doesn't match
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "Schüler" => Some(TenantType::Schüler),
@@ -39,18 +100,63 @@ impl std::fmt::Display for TenantType {
     }
 }
 
-/// Domain model for a rental agreement.
+/// A rental agreement between a tenant and a locker.
+///
+/// Represents the contract for a tenant to use a specific locker for a defined period.
+/// Tracks deposit payments, return status, and can calculate accumulated debt.
+///
+/// # Fields
+///
+/// * `id` - Database identifier
+/// * `locker_id` - Foreign key to the rented locker
+/// * `tenant_username` - Username of the tenant (e.g., "max.mustermann")
+/// * `tenant_type` - Type of tenant (Schüler or Lehrer)
+/// * `rental_start_date` - When the rental period begins
+/// * `rental_end_date` - When the rental period ends
+/// * `deposit_paid` - Whether the 10€ deposit has been paid
+/// * `deposit_returned` - Whether the deposit has been returned
+/// * `created_at` - When the rental record was created
+/// * `returned_at` - When the locker was returned (if applicable)
+///
+/// # Example
+///
+/// ```rust
+/// use schliessfach_manager::models::{Rental, TenantType};
+/// use chrono::{Duration, Utc};
+///
+/// let today = Utc::now().date_naive();
+/// let mut rental = Rental::new(
+///     1, "anna.schmidt", TenantType::Lehrer,
+///     today, today + Duration::days(365)
+/// );
+///
+/// // Mark deposit as paid
+/// rental.deposit_paid = true;
+///
+/// // Get email address
+/// assert_eq!(rental.email(), "anna.schmidt@athenetz.de");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rental {
+    /// Database identifier.
     pub id: i64,
+    /// Foreign key to the rented locker.
     pub locker_id: i64,
+    /// Username of the tenant (e.g., "max.mustermann").
     pub tenant_username: String,
+    /// Type of tenant (Schüler or Lehrer).
     pub tenant_type: TenantType,
+    /// When the rental period begins.
     pub rental_start_date: NaiveDate,
+    /// When the rental period ends.
     pub rental_end_date: NaiveDate,
+    /// Whether the 10€ deposit has been paid.
     pub deposit_paid: bool,
+    /// Whether the deposit has been returned.
     pub deposit_returned: bool,
+    /// When the rental record was created.
     pub created_at: DateTime<Utc>,
+    /// When the locker was returned (if applicable).
     pub returned_at: Option<DateTime<Utc>>,
 }
 
