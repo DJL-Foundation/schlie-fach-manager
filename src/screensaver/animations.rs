@@ -46,6 +46,15 @@ pub trait Animation: Send + Sync {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SpinningClock;
 
+impl SpinningClock {
+    /// Frame delay in milliseconds.
+    const FRAME_DELAY_MS: u64 = 150;
+    /// Width in characters.
+    const WIDTH: u16 = 2;
+    /// Height in lines.
+    const HEIGHT: u16 = 1;
+}
+
 impl Animation for SpinningClock {
     fn name(&self) -> &str {
         "Spinning Clock"
@@ -58,15 +67,15 @@ impl Animation for SpinningClock {
     }
 
     fn frame_delay_ms(&self) -> u64 {
-        150
+        Self::FRAME_DELAY_MS
     }
 
     fn width(&self) -> u16 {
-        2
+        Self::WIDTH
     }
 
     fn height(&self) -> u16 {
-        1
+        Self::HEIGHT
     }
 }
 
@@ -75,6 +84,15 @@ impl Animation for SpinningClock {
 /// Shows a small box moving around inside a larger container.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BouncingBox;
+
+impl BouncingBox {
+    /// Frame delay in milliseconds.
+    const FRAME_DELAY_MS: u64 = 100;
+    /// Width in characters.
+    const WIDTH: u16 = 15;
+    /// Height in lines.
+    const HEIGHT: u16 = 7;
+}
 
 impl Animation for BouncingBox {
     fn name(&self) -> &str {
@@ -171,21 +189,30 @@ impl Animation for BouncingBox {
     }
 
     fn frame_delay_ms(&self) -> u64 {
-        100
+        Self::FRAME_DELAY_MS
     }
 
     fn width(&self) -> u16 {
-        15
+        Self::WIDTH
     }
 
     fn height(&self) -> u16 {
-        7
+        Self::HEIGHT
     }
 }
 
 /// A Matrix-style rain animation with falling 0s and 1s.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MatrixRain;
+
+impl MatrixRain {
+    /// Frame delay in milliseconds.
+    const FRAME_DELAY_MS: u64 = 200;
+    /// Width in characters.
+    const WIDTH: u16 = 15;
+    /// Height in lines.
+    const HEIGHT: u16 = 8;
+}
 
 impl Animation for MatrixRain {
     fn name(&self) -> &str {
@@ -262,21 +289,30 @@ impl Animation for MatrixRain {
     }
 
     fn frame_delay_ms(&self) -> u64 {
-        200
+        Self::FRAME_DELAY_MS
     }
 
     fn width(&self) -> u16 {
-        15
+        Self::WIDTH
     }
 
     fn height(&self) -> u16 {
-        8
+        Self::HEIGHT
     }
 }
 
 /// A loading spinner using braille characters.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LoadingSpinner;
+
+impl LoadingSpinner {
+    /// Frame delay in milliseconds.
+    const FRAME_DELAY_MS: u64 = 100;
+    /// Width in characters.
+    const WIDTH: u16 = 14;
+    /// Height in lines.
+    const HEIGHT: u16 = 3;
+}
 
 impl Animation for LoadingSpinner {
     fn name(&self) -> &str {
@@ -319,21 +355,30 @@ impl Animation for LoadingSpinner {
     }
 
     fn frame_delay_ms(&self) -> u64 {
-        100
+        Self::FRAME_DELAY_MS
     }
 
     fn width(&self) -> u16 {
-        14
+        Self::WIDTH
     }
 
     fn height(&self) -> u16 {
-        3
+        Self::HEIGHT
     }
 }
 
 /// A waving text animation showing "Schließfach-Manager" moving up and down.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WavingText;
+
+impl WavingText {
+    /// Frame delay in milliseconds.
+    const FRAME_DELAY_MS: u64 = 300;
+    /// Width in characters.
+    const WIDTH: u16 = 25;
+    /// Height in lines.
+    const HEIGHT: u16 = 5;
+}
 
 impl Animation for WavingText {
     fn name(&self) -> &str {
@@ -376,15 +421,15 @@ impl Animation for WavingText {
     }
 
     fn frame_delay_ms(&self) -> u64 {
-        300
+        Self::FRAME_DELAY_MS
     }
 
     fn width(&self) -> u16 {
-        25
+        Self::WIDTH
     }
 
     fn height(&self) -> u16 {
-        5
+        Self::HEIGHT
     }
 }
 
