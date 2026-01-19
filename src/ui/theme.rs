@@ -4,17 +4,34 @@ use ratatui::style::{Color, Modifier, Style};
 pub struct Theme;
 
 impl Theme {
-    // Colors
+    // Base colors
     pub const PRIMARY: Color = Color::Cyan;
     pub const SECONDARY: Color = Color::Yellow;
     pub const SUCCESS: Color = Color::Green;
     pub const WARNING: Color = Color::Yellow;
     pub const ERROR: Color = Color::Red;
+    pub const INFO: Color = Color::Cyan;
     pub const TEXT: Color = Color::White;
     pub const TEXT_DIM: Color = Color::Gray;
     pub const TEXT_DARK: Color = Color::DarkGray;
     pub const BG_HIGHLIGHT: Color = Color::DarkGray;
     pub const BG_SELECTED: Color = Color::Rgb(40, 40, 60);
+
+    // v2.1 Keybind bar colors
+    pub const KEYBIND_GLOBAL: Color = Color::Yellow;
+    pub const KEYBIND_CONTEXT: Color = Color::Rgb(180, 180, 180);
+
+    // v2.1 Window switcher colors
+    pub const WINDOW_CURRENT: Color = Color::Cyan;
+    pub const WINDOW_ADJACENT: Color = Color::DarkGray;
+
+    // v2.1 Escape indicator colors
+    pub const ESCAPE_INDICATOR_ACTIVE: Color = Color::Yellow;
+    pub const ESCAPE_INDICATOR_INACTIVE: Color = Color::DarkGray;
+
+    // v2.1 Screensaver colors
+    pub const SCREENSAVER_BG: Color = Color::Black;
+    pub const SCREENSAVER_FG: Color = Color::Green;
 
     // Status colors
     pub const FREE: Color = Color::Green;
@@ -147,5 +164,82 @@ impl Theme {
         } else {
             Self::status_free()
         }
+    }
+
+    // v2.1 Status bar styles
+    /// Style for info status messages.
+    pub fn status_info() -> Style {
+        Style::default().fg(Self::INFO)
+    }
+
+    /// Style for success status messages.
+    pub fn status_success() -> Style {
+        Style::default()
+            .fg(Self::SUCCESS)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for warning status messages.
+    pub fn status_warning() -> Style {
+        Style::default()
+            .fg(Self::WARNING)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for error status messages.
+    pub fn status_error() -> Style {
+        Style::default()
+            .fg(Self::ERROR)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    // v2.1 Keybind bar styles
+    /// Style for global keybinds (accent color).
+    pub fn keybind_global() -> Style {
+        Style::default()
+            .fg(Self::KEYBIND_GLOBAL)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for context-specific keybinds (neutral color).
+    pub fn keybind_context() -> Style {
+        Style::default().fg(Self::KEYBIND_CONTEXT)
+    }
+
+    // v2.1 Window switcher styles
+    /// Style for the current window in the switcher.
+    pub fn window_current() -> Style {
+        Style::default()
+            .fg(Self::WINDOW_CURRENT)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for adjacent windows in the switcher (dimmed).
+    pub fn window_adjacent() -> Style {
+        Style::default().fg(Self::WINDOW_ADJACENT)
+    }
+
+    // v2.1 Escape indicator styles
+    /// Style for active escape indicator pipes.
+    pub fn escape_indicator_active() -> Style {
+        Style::default()
+            .fg(Self::ESCAPE_INDICATOR_ACTIVE)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Style for inactive escape indicator pipes.
+    pub fn escape_indicator_inactive() -> Style {
+        Style::default().fg(Self::ESCAPE_INDICATOR_INACTIVE)
+    }
+
+    // v2.1 Screensaver styles
+    /// Style for screensaver background.
+    pub fn screensaver_bg() -> Style {
+        Style::default().bg(Self::SCREENSAVER_BG)
+    }
+
+    /// Style for screensaver foreground (animation text).
+    pub fn screensaver_fg() -> Style {
+        Style::default().fg(Self::SCREENSAVER_FG)
     }
 }
