@@ -4,5 +4,5 @@
 pub mod dashboard;
 pub mod screensaver;
 
-pub use dashboard::DashboardScreen;
+pub use dashboard::{DashboardScreen, format_currency};
 pub use screensaver::ScreensaverScreen;

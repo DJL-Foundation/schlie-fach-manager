@@ -68,6 +68,8 @@ impl DashboardData {
         
         // Breakdown by size
         // TODO: Query actual data from rentals JOIN lockers
+        // NOTE: This mock data is temporary and will not match the real total/occupied counts
+        // Once the rental system is fully implemented, replace with proper aggregation queries
         let mut by_size = HashMap::new();
         by_size.insert("Klein".to_string(), (5, 20));
         by_size.insert("Mittel".to_string(), (8, 15));
@@ -75,6 +77,8 @@ impl DashboardData {
         
         // Breakdown by location
         // TODO: Query actual data from rentals JOIN lockers
+        // NOTE: This mock data is temporary and will not match the real total/occupied counts
+        // Once the rental system is fully implemented, replace with proper aggregation queries
         let mut by_location = HashMap::new();
         by_location.insert("Hauptgebäude".to_string(), (12, 30));
         by_location.insert("Nebengebäude".to_string(), (3, 10));
@@ -228,9 +232,16 @@ impl DashboardData {
 
 /// Format currency in cents to EUR string
 pub fn format_currency(cents: i64) -> String {
-    let euros = cents / 100;
-    let cent_part = cents.abs() % 100;
-    format!("{},{:02}€", euros, cent_part)
+    let is_negative = cents < 0;
+    let abs_cents = cents.abs();
+    let euros = abs_cents / 100;
+    let cent_part = abs_cents % 100;
+    
+    if is_negative {
+        format!("-{},{:02}€", euros, cent_part)
+    } else {
+        format!("{},{:02}€", euros, cent_part)
+    }
 }
 
 /// Main dashboard screen
@@ -589,5 +600,32 @@ impl DashboardScreen {
 impl Default for DashboardScreen {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_format_currency_positive() {
+        assert_eq!(format_currency(1000), "10,00€");
+        assert_eq!(format_currency(1050), "10,50€");
+        assert_eq!(format_currency(99), "0,99€");
+        assert_eq!(format_currency(0), "0,00€");
+    }
+    
+    #[test]
+    fn test_format_currency_negative() {
+        assert_eq!(format_currency(-1000), "-10,00€");
+        assert_eq!(format_currency(-1050), "-10,50€");
+        assert_eq!(format_currency(-99), "-0,99€");
+    }
+    
+    #[test]
+    fn test_format_currency_large_amounts() {
+        assert_eq!(format_currency(100000), "1000,00€");
+        assert_eq!(format_currency(123456), "1234,56€");
+        assert_eq!(format_currency(-123456), "-1234,56€");
     }
 }

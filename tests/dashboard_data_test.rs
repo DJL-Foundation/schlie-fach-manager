@@ -98,36 +98,44 @@ fn test_dashboard_revenue_calculation() {
     ).unwrap();
     let locker_id = conn.last_insert_rowid();
     
-    // Add a rental
+    // Add a rental with fixed dates
     conn.execute(
         "INSERT INTO rentals (locker_id, renter_name, start_date, end_date) 
-         VALUES (?1, 'Test User', date('now', '-60 days'), date('now', '+30 days'))",
+         VALUES (?1, 'Test User', '2024-01-01', '2024-12-31')",
         [locker_id],
     ).unwrap();
     let rental_id = conn.last_insert_rowid();
     
-    // Add a payment from 15 days ago
+    // Add a recent payment (within 30-day window from reference date)
     conn.execute(
         "INSERT INTO payments (rental_id, amount_cents, payment_date, payment_type) 
-         VALUES (?1, 5000, date('now', '-15 days'), 'Deposit')",
+         VALUES (?1, 5000, '2024-06-15', 'Deposit')",
         [rental_id],
     ).unwrap();
     
-    // Add a payment from 45 days ago (outside 30-day window)
+    // Add an older payment (outside 30-day window from reference date)
     conn.execute(
         "INSERT INTO payments (rental_id, amount_cents, payment_date, payment_type) 
-         VALUES (?1, 3000, date('now', '-45 days'), 'Fee')",
+         VALUES (?1, 3000, '2024-05-01', 'Fee')",
         [rental_id],
     ).unwrap();
     
-    // Calculate revenue for last 30 days
-    let revenue_30d: i64 = conn.query_row(
+    // Calculate revenue from 2024-06-01 onwards (should include 5000 but not 3000)
+    let revenue_recent: i64 = conn.query_row(
         "SELECT COALESCE(SUM(amount_cents), 0) FROM payments 
-         WHERE payment_date >= date('now', '-30 days')",
+         WHERE payment_date >= '2024-06-01'",
         [],
         |row| row.get(0),
     ).unwrap();
     
-    // Should only include the 5000 cents payment from 15 days ago
-    assert_eq!(revenue_30d, 5000, "Revenue should be 5000 cents (50 EUR)");
+    // Should only include the 5000 cents payment from June 15
+    assert_eq!(revenue_recent, 5000, "Revenue should be 5000 cents (50 EUR)");
+    
+    // Total revenue should be 8000 cents
+    let revenue_total: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(amount_cents), 0) FROM payments",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+    assert_eq!(revenue_total, 8000, "Total revenue should be 8000 cents (80 EUR)");
 }
