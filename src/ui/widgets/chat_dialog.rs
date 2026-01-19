@@ -115,14 +115,17 @@ impl ChatDialog {
     pub fn confirm_step(&mut self) -> Option<String> {
         if let Some(step) = self.current_step().cloned() {
             let response = match &step {
-                ChatStep::Question { prompt, input_type, .. } => {
+                ChatStep::Question {
+                    prompt, input_type, ..
+                } => {
                     let resp = match input_type {
                         InputType::Text | InputType::TextWithSuffix(_) | InputType::Money => {
                             self.input.clone()
                         }
-                        InputType::Choice(options) => {
-                            options.get(self.selected_option).cloned().unwrap_or_default()
-                        }
+                        InputType::Choice(options) => options
+                            .get(self.selected_option)
+                            .cloned()
+                            .unwrap_or_default(),
                         InputType::YesNo => {
                             if self.selected_option == 0 {
                                 "Ja".to_string()
@@ -146,9 +149,7 @@ impl ChatDialog {
                     });
                     Some("confirmed".to_string())
                 }
-                ChatStep::Info { .. } | ChatStep::Completed { .. } => {
-                    None
-                }
+                ChatStep::Info { .. } | ChatStep::Completed { .. } => None,
             };
 
             self.current_step += 1;
@@ -223,15 +224,20 @@ pub fn render_chat_dialog(frame: &mut Frame, area: Rect, dialog: &ChatDialog) {
     }
 
     // Render help
-    let help = Paragraph::new(Line::from(vec![
-        Span::styled("[Enter] Bestätigen | [↑↓] Auswählen | [ESC] Abbrechen", Theme::dim()),
-    ]));
+    let help = Paragraph::new(Line::from(vec![Span::styled(
+        "[Enter] Bestätigen | [↑↓] Auswählen | [ESC] Abbrechen",
+        Theme::dim(),
+    )]));
     frame.render_widget(help, chunks[2]);
 }
 
 fn render_chat_step(frame: &mut Frame, area: Rect, step: &ChatStep, dialog: &ChatDialog) {
     match step {
-        ChatStep::Question { prompt, subtitle, input_type } => {
+        ChatStep::Question {
+            prompt,
+            subtitle,
+            input_type,
+        } => {
             let mut lines: Vec<Line> = Vec::new();
 
             lines.push(Line::from(vec![
@@ -325,22 +331,18 @@ fn render_chat_step(frame: &mut Frame, area: Rect, step: &ChatStep, dialog: &Cha
             frame.render_widget(paragraph, area);
         }
         ChatStep::Info { message } => {
-            let lines = vec![
-                Line::from(vec![
-                    Span::styled("ℹ ", Theme::info_style()),
-                    Span::styled(message, Theme::normal()),
-                ]),
-            ];
+            let lines = vec![Line::from(vec![
+                Span::styled("ℹ ", Theme::info_style()),
+                Span::styled(message, Theme::normal()),
+            ])];
             let paragraph = Paragraph::new(lines);
             frame.render_widget(paragraph, area);
         }
         ChatStep::Completed { message } => {
-            let lines = vec![
-                Line::from(vec![
-                    Span::styled("✓ ", Theme::success()),
-                    Span::styled(message, Theme::success()),
-                ]),
-            ];
+            let lines = vec![Line::from(vec![
+                Span::styled("✓ ", Theme::success()),
+                Span::styled(message, Theme::success()),
+            ])];
             let paragraph = Paragraph::new(lines);
             frame.render_widget(paragraph, area);
         }

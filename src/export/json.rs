@@ -1,5 +1,5 @@
-use crate::models::{Locker, Payment, Rental};
 use crate::models::stats::{FullBackup, Location};
+use crate::models::{Locker, Payment, Rental};
 use chrono::Utc;
 use color_eyre::eyre::Result;
 use std::path::Path;

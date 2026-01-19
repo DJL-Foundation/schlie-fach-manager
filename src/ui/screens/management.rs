@@ -128,7 +128,11 @@ fn render_lockers_tab(frame: &mut Frame, area: Rect, state: &ManagementState, lo
         } else {
             Theme::status_free()
         };
-        let defekt_text = if locker.is_damaged { "Ja ⚠".to_string() } else { "Nein".to_string() };
+        let defekt_text = if locker.is_damaged {
+            "Ja ⚠".to_string()
+        } else {
+            "Nein".to_string()
+        };
 
         Row::new(vec![
             Cell::from(locker.label.clone()),
@@ -317,12 +321,13 @@ fn render_backup_tab(frame: &mut Frame, area: Rect) {
         .split(inner);
 
     // DB info
-    let db_info = vec![
-        Line::from(vec![
-            Span::styled("Datenbank-Pfad: ", Theme::dim()),
-            Span::styled("~/.local/share/schliessfach-manager/schliessfach.db", Theme::normal()),
-        ]),
-    ];
+    let db_info = vec![Line::from(vec![
+        Span::styled("Datenbank-Pfad: ", Theme::dim()),
+        Span::styled(
+            "~/.local/share/schliessfach-manager/schliessfach.db",
+            Theme::normal(),
+        ),
+    ])];
     frame.render_widget(Paragraph::new(db_info), chunks[0]);
 
     // Export section
@@ -395,10 +400,10 @@ fn render_settings_tab(frame: &mut Frame, area: Rect) {
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(8),  // Financial settings
-            Constraint::Length(6),  // UI settings
-            Constraint::Length(4),  // App info
-            Constraint::Min(1),     // Spacer
+            Constraint::Length(8), // Financial settings
+            Constraint::Length(6), // UI settings
+            Constraint::Length(4), // App info
+            Constraint::Min(1),    // Spacer
         ])
         .split(inner);
 
@@ -440,21 +445,17 @@ fn render_settings_tab(frame: &mut Frame, area: Rect) {
     let ui_inner = ui_block.inner(chunks[1]);
     frame.render_widget(ui_block, chunks[1]);
 
-    let ui_lines = vec![
-        Line::from(vec![
-            Span::styled("Screensaver Timeout:      ", Theme::dim()),
-            Span::styled("60 Sekunden", Theme::normal()),
-        ]),
-    ];
+    let ui_lines = vec![Line::from(vec![
+        Span::styled("Screensaver Timeout:      ", Theme::dim()),
+        Span::styled("60 Sekunden", Theme::normal()),
+    ])];
     frame.render_widget(Paragraph::new(ui_lines), ui_inner);
 
     // App info section
-    let info_lines = vec![
-        Line::from(vec![
-            Span::styled("Anwendungsversion:        ", Theme::dim()),
-            Span::styled("2.1.0", Theme::normal()),
-        ]),
-    ];
+    let info_lines = vec![Line::from(vec![
+        Span::styled("Anwendungsversion:        ", Theme::dim()),
+        Span::styled("2.1.0", Theme::normal()),
+    ])];
     frame.render_widget(Paragraph::new(info_lines), chunks[2]);
 }
 
@@ -472,8 +473,8 @@ fn render_audit_tab(frame: &mut Frame, area: Rect) {
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(2),  // Filter info
-            Constraint::Min(10),    // Log entries
+            Constraint::Length(2), // Filter info
+            Constraint::Min(10),   // Log entries
         ])
         .split(inner);
 

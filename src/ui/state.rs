@@ -19,12 +19,12 @@ impl Default for AppScreen {
 /// Tabs within Rental Management.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RentalManagementTab {
-    Search,  // Verleihen
+    Search, // Verleihen
     #[default]
-    List,    // Liste
-    Extend,  // Verlängern
-    Return,  // Zurückgeben
-    Damage,  // Defekt melden
+    List, // Liste
+    Extend, // Verlängern
+    Return, // Zurückgeben
+    Damage, // Defekt melden
 }
 
 impl RentalManagementTab {

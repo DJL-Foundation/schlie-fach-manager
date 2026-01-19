@@ -63,8 +63,8 @@ pub fn import_full_backup_toml(conn: &Connection, path: &Path) -> Result<ImportS
     let toml_content = std::fs::read_to_string(path)
         .wrap_err_with(|| format!("Konnte Datei nicht lesen: {}", path.display()))?;
 
-    let backup: FullBackup = toml::from_str(&toml_content)
-        .wrap_err("TOML-Datei konnte nicht geparst werden")?;
+    let backup: FullBackup =
+        toml::from_str(&toml_content).wrap_err("TOML-Datei konnte nicht geparst werden")?;
 
     import_backup_data(conn, &backup)
 }
@@ -73,8 +73,8 @@ pub fn import_full_backup_toml(conn: &Connection, path: &Path) -> Result<ImportS
 mod tests {
     use super::*;
     use crate::db::Database;
-    use crate::models::{Locker, Payment, PaymentType, Rental, TenantType};
     use crate::models::stats::Location;
+    use crate::models::{Locker, Payment, PaymentType, Rental, TenantType};
     use chrono::{Duration, Utc};
     use tempfile::NamedTempFile;
 
@@ -207,11 +207,9 @@ mod tests {
         assert_eq!(stats.payments_imported, 1);
 
         // Verify data in database
-        let locker_count: i32 = db.conn.query_row(
-            "SELECT COUNT(*) FROM lockers",
-            [],
-            |row| row.get(0),
-        )?;
+        let locker_count: i32 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM lockers", [], |row| row.get(0))?;
         assert_eq!(locker_count, 2);
 
         Ok(())

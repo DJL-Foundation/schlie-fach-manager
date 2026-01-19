@@ -88,9 +88,8 @@ pub fn import_lockers_csv(conn: &Connection, path: &Path) -> Result<usize> {
     let height_idx = find_column_index(&headers, &["Hoehe_cm", "Höhe_cm", "Height", "Höhe"]);
     let damaged_idx = find_column_index(&headers, &["Defekt", "Damaged", "Beschädigt"]);
 
-    let label_idx = label_idx.ok_or_else(|| {
-        color_eyre::eyre::eyre!("Spalte 'Label' oder 'Nummer' nicht gefunden")
-    })?;
+    let label_idx = label_idx
+        .ok_or_else(|| color_eyre::eyre::eyre!("Spalte 'Label' oder 'Nummer' nicht gefunden"))?;
     let location_idx = location_idx.ok_or_else(|| {
         color_eyre::eyre::eyre!("Spalte 'Standort' oder 'Location' nicht gefunden")
     })?;
@@ -178,7 +177,10 @@ pub fn import_rentals_csv(conn: &Connection, path: &Path) -> Result<usize> {
     let headers = reader.headers()?.clone();
 
     // Find column indices with flexible naming
-    let locker_idx = find_column_index(&headers, &["Schliessfach", "Schließfach", "Locker", "Label"]);
+    let locker_idx = find_column_index(
+        &headers,
+        &["Schliessfach", "Schließfach", "Locker", "Label"],
+    );
     let tenant_idx = find_column_index(&headers, &["Mieter", "Tenant", "Username", "Benutzer"]);
     let type_idx = find_column_index(&headers, &["Typ", "Type", "Mietertyp"]);
     let start_idx = find_column_index(&headers, &["Beginn", "Start", "Start_Date", "Startdatum"]);
@@ -187,15 +189,12 @@ pub fn import_rentals_csv(conn: &Connection, path: &Path) -> Result<usize> {
     let locker_idx = locker_idx.ok_or_else(|| {
         color_eyre::eyre::eyre!("Spalte 'Schliessfach' oder 'Locker' nicht gefunden")
     })?;
-    let tenant_idx = tenant_idx.ok_or_else(|| {
-        color_eyre::eyre::eyre!("Spalte 'Mieter' oder 'Tenant' nicht gefunden")
-    })?;
-    let start_idx = start_idx.ok_or_else(|| {
-        color_eyre::eyre::eyre!("Spalte 'Beginn' oder 'Start' nicht gefunden")
-    })?;
-    let end_idx = end_idx.ok_or_else(|| {
-        color_eyre::eyre::eyre!("Spalte 'Ende' oder 'End' nicht gefunden")
-    })?;
+    let tenant_idx = tenant_idx
+        .ok_or_else(|| color_eyre::eyre::eyre!("Spalte 'Mieter' oder 'Tenant' nicht gefunden"))?;
+    let start_idx = start_idx
+        .ok_or_else(|| color_eyre::eyre::eyre!("Spalte 'Beginn' oder 'Start' nicht gefunden"))?;
+    let end_idx = end_idx
+        .ok_or_else(|| color_eyre::eyre::eyre!("Spalte 'Ende' oder 'End' nicht gefunden"))?;
 
     let tx = conn.unchecked_transaction()?;
     let mut count = 0;
@@ -278,9 +277,10 @@ pub fn import_rentals_csv(conn: &Connection, path: &Path) -> Result<usize> {
 /// Finds a column index by trying multiple possible column names.
 fn find_column_index(headers: &csv::StringRecord, names: &[&str]) -> Option<usize> {
     for name in names {
-        if let Some(idx) = headers.iter().position(|h| {
-            h.trim().eq_ignore_ascii_case(name)
-        }) {
+        if let Some(idx) = headers
+            .iter()
+            .position(|h| h.trim().eq_ignore_ascii_case(name))
+        {
             return Some(idx);
         }
     }
@@ -313,11 +313,9 @@ B-001,Turnhalle,100,Nein
         assert_eq!(count, 3);
 
         // Verify data
-        let locker_count: i32 = db.conn.query_row(
-            "SELECT COUNT(*) FROM lockers",
-            [],
-            |row| row.get(0),
-        )?;
+        let locker_count: i32 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM lockers", [], |row| row.get(0))?;
         assert_eq!(locker_count, 3);
 
         let damaged_count: i32 = db.conn.query_row(
@@ -379,11 +377,9 @@ A-002,anna.schmidt,Lehrer,2024-02-01,2025-01-31
         assert_eq!(count, 2);
 
         // Verify data
-        let rental_count: i32 = db.conn.query_row(
-            "SELECT COUNT(*) FROM rentals",
-            [],
-            |row| row.get(0),
-        )?;
+        let rental_count: i32 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM rentals", [], |row| row.get(0))?;
         assert_eq!(rental_count, 2);
 
         Ok(())
@@ -421,7 +417,10 @@ X-999,user2,Student,2024-01-01,2024-12-31
         let headers = csv::StringRecord::from(vec!["Label", "Location", "Height"]);
 
         assert_eq!(find_column_index(&headers, &["Label", "Nummer"]), Some(0));
-        assert_eq!(find_column_index(&headers, &["Standort", "Location"]), Some(1));
+        assert_eq!(
+            find_column_index(&headers, &["Standort", "Location"]),
+            Some(1)
+        );
         assert_eq!(find_column_index(&headers, &["Unknown"]), None);
     }
 }

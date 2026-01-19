@@ -268,7 +268,9 @@ impl WindowSwitcherState {
 
     /// Returns the currently selected window name.
     pub fn selected_window(&self) -> Option<&str> {
-        self.window_names.get(self.selected_index).map(|s| s.as_str())
+        self.window_names
+            .get(self.selected_index)
+            .map(|s| s.as_str())
     }
 }
 

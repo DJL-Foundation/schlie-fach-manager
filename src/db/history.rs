@@ -5,7 +5,7 @@
 
 use chrono::{NaiveDate, Utc};
 use color_eyre::eyre::Result;
-use rusqlite::{Connection, params, Row};
+use rusqlite::{params, Connection, Row};
 
 /// Represents an occupancy snapshot at a point in time.
 #[derive(Debug, Clone)]
@@ -59,10 +59,7 @@ pub fn record_occupancy_snapshot(conn: &Connection) -> Result<()> {
 }
 
 /// Records a snapshot with custom values and optional notes.
-pub fn record_occupancy_snapshot_with_notes(
-    conn: &Connection,
-    notes: Option<&str>,
-) -> Result<()> {
+pub fn record_occupancy_snapshot_with_notes(conn: &Connection, notes: Option<&str>) -> Result<()> {
     let today = Utc::now().format("%Y-%m-%d").to_string();
 
     let total_lockers: i32 =
@@ -86,7 +83,13 @@ pub fn record_occupancy_snapshot_with_notes(
             (snapshot_date, total_lockers, occupied_lockers, occupancy_percent, notes)
         VALUES (?1, ?2, ?3, ?4, ?5)
         "#,
-        params![today, total_lockers, occupied_lockers, occupancy_percent, notes],
+        params![
+            today,
+            total_lockers,
+            occupied_lockers,
+            occupancy_percent,
+            notes
+        ],
     )?;
 
     Ok(())
@@ -191,8 +194,8 @@ fn row_to_snapshot(row: &Row) -> rusqlite::Result<OccupancySnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::migrations::apply_migrations;
     use crate::db::lockers;
+    use crate::db::migrations::apply_migrations;
     use crate::models::Locker;
 
     fn setup_db() -> Connection {

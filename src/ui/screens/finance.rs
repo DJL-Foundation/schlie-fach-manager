@@ -147,17 +147,20 @@ fn render_overview_tab(
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(2),  // Period selector
-            Constraint::Length(9),  // Einnahmen box
-            Constraint::Length(7),  // Ausstehend box
-            Constraint::Min(3),     // Spacer
+            Constraint::Length(2), // Period selector
+            Constraint::Length(9), // Einnahmen box
+            Constraint::Length(7), // Ausstehend box
+            Constraint::Min(3),    // Spacer
         ])
         .split(inner);
 
     // Period selector
     let period_line = Line::from(vec![
         Span::raw("Zeitraum: "),
-        Span::styled(format!("[{}]", state.time_period.label()), Theme::button_selected()),
+        Span::styled(
+            format!("[{}]", state.time_period.label()),
+            Theme::button_selected(),
+        ),
     ]);
     frame.render_widget(Paragraph::new(period_line), chunks[0]);
 
@@ -169,7 +172,10 @@ fn render_overview_tab(
     let _net_euros = summary.net_cents as f64 / 100.0;
 
     let einnahmen_block = Block::default()
-        .title(format!(" Einnahmen (Zeitraum: {}) ", state.time_period.label()))
+        .title(format!(
+            " Einnahmen (Zeitraum: {}) ",
+            state.time_period.label()
+        ))
         .borders(Borders::ALL)
         .border_style(Theme::dim());
 
@@ -180,21 +186,30 @@ fn render_overview_tab(
         Line::from(vec![
             Span::raw("Pfand-Einnahmen:       "),
             Span::styled(
-                format!("{:>10.2} € ({} × 10€)", deposits_euros, summary.deposit_count),
+                format!(
+                    "{:>10.2} € ({} × 10€)",
+                    deposits_euros, summary.deposit_count
+                ),
                 Theme::success(),
             ),
         ]),
         Line::from(vec![
             Span::raw("Verlängerungen:        "),
             Span::styled(
-                format!("{:>10.2} € ({} × 10€)", extensions_euros, summary.extension_count),
+                format!(
+                    "{:>10.2} € ({} × 10€)",
+                    extensions_euros, summary.extension_count
+                ),
                 Theme::success(),
             ),
         ]),
         Line::from(vec![
             Span::raw("Pfand-Rückgaben:       "),
             Span::styled(
-                format!("{:>10.2} € ({} × 10€)", returns_euros, summary.deposit_return_count),
+                format!(
+                    "{:>10.2} € ({} × 10€)",
+                    returns_euros, summary.deposit_return_count
+                ),
                 Theme::warning(),
             ),
         ]),
@@ -241,21 +256,33 @@ fn render_overview_tab(
         Line::from(vec![
             Span::raw("Überfällige Verlängerungen: "),
             Span::styled(
-                format!("{:>10.2} € ({} Verleih)", total_debt as f64 / 100.0, debtors.len()),
+                format!(
+                    "{:>10.2} € ({} Verleih)",
+                    total_debt as f64 / 100.0,
+                    debtors.len()
+                ),
                 Theme::warning(),
             ),
         ]),
         Line::from(vec![
             Span::raw("  davon Schüler:            "),
             Span::styled(
-                format!("{:>10.2} € ({} Verleih)", student_debt as f64 / 100.0, student_count),
+                format!(
+                    "{:>10.2} € ({} Verleih)",
+                    student_debt as f64 / 100.0,
+                    student_count
+                ),
                 Theme::dim(),
             ),
         ]),
         Line::from(vec![
             Span::raw("  davon Lehrer:             "),
             Span::styled(
-                format!("{:>10.2} € ({} Verleih)", teacher_debt as f64 / 100.0, teacher_count),
+                format!(
+                    "{:>10.2} € ({} Verleih)",
+                    teacher_debt as f64 / 100.0,
+                    teacher_count
+                ),
                 Theme::dim(),
             ),
         ]),

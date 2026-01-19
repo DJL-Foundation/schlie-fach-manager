@@ -60,7 +60,9 @@ impl RentLockerWorkflow {
     }
 
     pub fn set_available_lockers(&mut self, locker_ids: Vec<i64>) {
-        self.state = RentState::SelectLocker { available: locker_ids };
+        self.state = RentState::SelectLocker {
+            available: locker_ids,
+        };
     }
 
     pub fn select_locker(&mut self, locker_id: i64) {

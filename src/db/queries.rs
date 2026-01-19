@@ -173,10 +173,11 @@ pub fn get_active_rentals_with_lockers(conn: &Connection) -> Result<Vec<RentalWi
 
 /// Returns the total revenue from all payments.
 fn get_total_revenue(conn: &Connection) -> Result<i32> {
-    let total: i32 = conn
-        .query_row("SELECT COALESCE(SUM(amount_cents), 0) FROM payments", [], |row| {
-            row.get(0)
-        })?;
+    let total: i32 = conn.query_row(
+        "SELECT COALESCE(SUM(amount_cents), 0) FROM payments",
+        [],
+        |row| row.get(0),
+    )?;
     Ok(total)
 }
 
@@ -222,7 +223,7 @@ pub fn get_payment_summary(
     const DEFAULT_START_YEAR: i32 = 2000;
     const DEFAULT_START_MONTH: u32 = 1;
     const DEFAULT_START_DAY: u32 = 1;
-    
+
     let start = start_date.unwrap_or_else(|| {
         NaiveDate::from_ymd_opt(DEFAULT_START_YEAR, DEFAULT_START_MONTH, DEFAULT_START_DAY)
             .expect("2000-01-01 is a valid date")

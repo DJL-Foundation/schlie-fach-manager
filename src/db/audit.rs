@@ -5,7 +5,7 @@
 
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::Result;
-use rusqlite::{Connection, params, Row};
+use rusqlite::{params, Connection, Row};
 
 /// Represents an entry in the audit log.
 #[derive(Debug, Clone)]

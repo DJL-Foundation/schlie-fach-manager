@@ -99,9 +99,7 @@ impl Theme {
     }
 
     pub fn button() -> Style {
-        Style::default()
-            .fg(Self::TEXT)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Self::TEXT).add_modifier(Modifier::BOLD)
     }
 
     pub fn button_selected() -> Style {
@@ -124,9 +122,7 @@ impl Theme {
     }
 
     pub fn status_free() -> Style {
-        Style::default()
-            .fg(Self::FREE)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(Self::FREE).add_modifier(Modifier::BOLD)
     }
 
     pub fn status_occupied() -> Style {

@@ -118,9 +118,7 @@ impl App {
     /// Switches to the next main screen.
     pub fn next_screen(&mut self) {
         self.screen = match &self.screen {
-            AppScreen::Dashboard => {
-                AppScreen::RentalManagement(RentalManagementTab::List)
-            }
+            AppScreen::Dashboard => AppScreen::RentalManagement(RentalManagementTab::List),
             AppScreen::RentalManagement(_) => {
                 AppScreen::Finance(crate::ui::state::FinanceTab::Overview)
             }
@@ -136,16 +134,10 @@ impl App {
     /// Switches to the previous main screen.
     pub fn prev_screen(&mut self) {
         self.screen = match &self.screen {
-            AppScreen::Dashboard => {
-                AppScreen::Management(crate::ui::state::ManagementTab::Lockers)
-            }
+            AppScreen::Dashboard => AppScreen::Management(crate::ui::state::ManagementTab::Lockers),
             AppScreen::RentalManagement(_) => AppScreen::Dashboard,
-            AppScreen::Finance(_) => {
-                AppScreen::RentalManagement(RentalManagementTab::List)
-            }
-            AppScreen::Management(_) => {
-                AppScreen::Finance(crate::ui::state::FinanceTab::Overview)
-            }
+            AppScreen::Finance(_) => AppScreen::RentalManagement(RentalManagementTab::List),
+            AppScreen::Management(_) => AppScreen::Finance(crate::ui::state::FinanceTab::Overview),
             AppScreen::Screensaver => AppScreen::Dashboard,
         };
         self.clear_search();

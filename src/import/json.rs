@@ -66,10 +66,7 @@ impl ImportStats {
 
     /// Returns the total number of records skipped.
     pub fn total_skipped(&self) -> usize {
-        self.lockers_skipped
-            + self.rentals_skipped
-            + self.payments_skipped
-            + self.locations_skipped
+        self.lockers_skipped + self.rentals_skipped + self.payments_skipped + self.locations_skipped
     }
 
     /// Returns true if any records were skipped during import.
@@ -143,8 +140,8 @@ pub fn import_full_backup_json(conn: &Connection, path: &Path) -> Result<ImportS
     let json_content = std::fs::read_to_string(path)
         .wrap_err_with(|| format!("Konnte Datei nicht lesen: {}", path.display()))?;
 
-    let backup: FullBackup = serde_json::from_str(&json_content)
-        .wrap_err("JSON-Datei konnte nicht geparst werden")?;
+    let backup: FullBackup =
+        serde_json::from_str(&json_content).wrap_err("JSON-Datei konnte nicht geparst werden")?;
 
     import_backup_data(conn, &backup)
 }
@@ -282,8 +279,8 @@ pub(crate) fn import_backup_data(conn: &Connection, backup: &FullBackup) -> Resu
 mod tests {
     use super::*;
     use crate::db::Database;
-    use crate::models::{Locker, Payment, PaymentType, Rental, TenantType};
     use crate::models::stats::Location;
+    use crate::models::{Locker, Payment, PaymentType, Rental, TenantType};
     use chrono::{Duration, Utc};
     use tempfile::NamedTempFile;
 

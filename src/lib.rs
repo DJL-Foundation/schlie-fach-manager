@@ -197,5 +197,5 @@ pub mod ui;
 pub mod workflows;
 
 // Re-export commonly used types at crate root for convenience
-pub use models::{Locker, Payment, PaymentType, Rental, TenantType};
 pub use db::Database;
+pub use models::{Locker, Payment, PaymentType, Rental, TenantType};

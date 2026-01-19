@@ -147,7 +147,12 @@ mod tests {
         let conn = setup_db();
         let rental_id = create_test_rental(&conn);
 
-        let payment = Payment::new(rental_id, 1000, PaymentType::Deposit, Utc::now().date_naive());
+        let payment = Payment::new(
+            rental_id,
+            1000,
+            PaymentType::Deposit,
+            Utc::now().date_naive(),
+        );
         let id = create_payment(&conn, &payment)?;
 
         let fetched = get_payment(&conn, id)?.unwrap();

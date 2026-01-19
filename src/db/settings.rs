@@ -3,8 +3,8 @@
 //! This module provides functions to read and write application settings
 //! stored in the settings table.
 
-use color_eyre::eyre::{Result, eyre};
-use rusqlite::{Connection, params};
+use color_eyre::eyre::{eyre, Result};
+use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
 /// Application settings with typed fields.
@@ -130,7 +130,11 @@ pub fn load_settings(conn: &Connection) -> Result<AppSettings> {
 /// Saves all settings from the AppSettings struct.
 pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<()> {
     set_setting(conn, "deposit_cents", &settings.deposit_cents.to_string())?;
-    set_setting(conn, "yearly_fee_cents", &settings.yearly_fee_cents.to_string())?;
+    set_setting(
+        conn,
+        "yearly_fee_cents",
+        &settings.yearly_fee_cents.to_string(),
+    )?;
     set_setting(conn, "billing_period", &settings.billing_period)?;
     set_setting(conn, "currency", &settings.currency)?;
     set_setting(

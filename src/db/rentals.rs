@@ -1,6 +1,6 @@
 use crate::models::{Rental, TenantType};
 use chrono::{DateTime, NaiveDate, Utc};
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{eyre, Result};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 /// Creates a new rental in the database.

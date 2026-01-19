@@ -13,8 +13,8 @@ pub fn render_dashboard(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // Title
-            Constraint::Min(10),    // Main content
+            Constraint::Length(1), // Title
+            Constraint::Min(10),   // Main content
         ])
         .split(area);
 
@@ -36,8 +36,8 @@ pub fn render_dashboard(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(9),  // Belegung: Fixed 9 lines
-            Constraint::Min(6),     // Aktionen erforderlich: Min 6 lines (grows)
+            Constraint::Length(9), // Belegung: Fixed 9 lines
+            Constraint::Min(6),    // Aktionen erforderlich: Min 6 lines (grows)
         ])
         .split(main_chunks[0]);
 
@@ -48,9 +48,9 @@ pub fn render_dashboard(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
     let right_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),  // Standorte: Fixed 7 lines
-            Constraint::Length(7),  // Finanzen: Fixed 7 lines
-            Constraint::Min(8),     // Trend: Min 8 lines (grows)
+            Constraint::Length(7), // Standorte: Fixed 7 lines
+            Constraint::Length(7), // Finanzen: Fixed 7 lines
+            Constraint::Min(8),    // Trend: Min 8 lines (grows)
         ])
         .split(main_chunks[1]);
 
@@ -198,7 +198,10 @@ fn render_actions_box(frame: &mut Frame, area: Rect, stats: &DashboardStats) {
         lines.push(Line::from(vec![
             Span::styled("• ", Theme::info_style()),
             Span::styled(
-                format!("{} Verträge laufen in 30 Tagen aus", stats.expiring_soon.len()),
+                format!(
+                    "{} Verträge laufen in 30 Tagen aus",
+                    stats.expiring_soon.len()
+                ),
                 Theme::normal(),
             ),
         ]));

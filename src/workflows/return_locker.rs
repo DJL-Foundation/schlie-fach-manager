@@ -1,9 +1,9 @@
 /// Return action based on debt status.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReturnAction {
-    AllowedWithDeposit,           // No debt, return deposit
-    AllowedWithoutDeposit,        // Exactly 10€ debt, keep deposit
-    RequiresPayment(i32),         // More than 10€ debt, requires payment
+    AllowedWithDeposit,    // No debt, return deposit
+    AllowedWithoutDeposit, // Exactly 10€ debt, keep deposit
+    RequiresPayment(i32),  // More than 10€ debt, requires payment
 }
 
 /// Deposit amount in cents (10€).
@@ -77,7 +77,7 @@ impl ReturnLockerWorkflow {
 
     pub fn process_debt(&mut self) -> ReturnAction {
         let action = calculate_return_action(self.debt_cents);
-        
+
         match &action {
             ReturnAction::AllowedWithDeposit => {
                 self.state = ReturnState::ConfirmDepositReturn;
@@ -91,7 +91,7 @@ impl ReturnLockerWorkflow {
                 self.state = ReturnState::ConfirmDebtPayment { debt_cents: *debt };
             }
         }
-        
+
         action
     }
 

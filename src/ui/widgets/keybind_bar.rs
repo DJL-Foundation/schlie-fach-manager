@@ -35,7 +35,11 @@ pub struct Keybind {
 
 impl Keybind {
     /// Creates a new keybind.
-    pub fn new(key: impl Into<String>, description: impl Into<String>, scope: KeybindScope) -> Self {
+    pub fn new(
+        key: impl Into<String>,
+        description: impl Into<String>,
+        scope: KeybindScope,
+    ) -> Self {
         Self {
             key: key.into(),
             description: description.into(),

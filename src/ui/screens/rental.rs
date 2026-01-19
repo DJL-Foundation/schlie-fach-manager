@@ -37,7 +37,8 @@ impl RentalState {
         } else {
             idx - 1
         };
-        self.selected_tab = RentalManagementTab::from_index(prev).unwrap_or(RentalManagementTab::List);
+        self.selected_tab =
+            RentalManagementTab::from_index(prev).unwrap_or(RentalManagementTab::List);
     }
 }
 
@@ -216,7 +217,11 @@ fn render_list_tab(
             };
             (username.clone(), status_text, style)
         } else if view.locker.is_damaged {
-            ("-".to_string(), "Defekt".to_string(), Theme::status_damaged())
+            (
+                "-".to_string(),
+                "Defekt".to_string(),
+                Theme::status_damaged(),
+            )
         } else {
             ("-".to_string(), "Frei".to_string(), Theme::status_free())
         };
@@ -257,7 +262,10 @@ fn render_list_tab(
             ];
 
             if let Some(ref username) = v.tenant_username {
-                lines.push(Line::from(Span::styled("─ Aktueller Verleih ─".to_string(), Theme::dim())));
+                lines.push(Line::from(Span::styled(
+                    "─ Aktueller Verleih ─".to_string(),
+                    Theme::dim(),
+                )));
                 lines.push(Line::from(vec![
                     Span::styled("Mieter: ".to_string(), Theme::dim()),
                     Span::styled(username.clone(), Theme::normal()),
@@ -301,7 +309,10 @@ fn render_list_tab(
                     Span::styled(status_text, status_style),
                 ]));
             } else {
-                lines.push(Line::from(Span::styled("Kein aktiver Verleih".to_string(), Theme::dim())));
+                lines.push(Line::from(Span::styled(
+                    "Kein aktiver Verleih".to_string(),
+                    Theme::dim(),
+                )));
             }
 
             lines.push(Line::from("".to_string()));
@@ -417,7 +428,10 @@ fn render_damage_tab(frame: &mut Frame, area: Rect, _state: &RentalState, _locke
         ]),
         Line::from(""),
         Line::from(Span::styled("Notizen (optional):", Theme::dim())),
-        Line::from(Span::styled("[_______________________________]", Theme::input())),
+        Line::from(Span::styled(
+            "[_______________________________]",
+            Theme::input(),
+        )),
         Line::from(""),
         Line::from(Span::styled(
             "⚠ Hinweis: Ein defektes Schließfach kann weiterhin verliehen sein!",

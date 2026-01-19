@@ -8,7 +8,7 @@ use schliessfach_manager::{
     db::{self, Database},
     ui::{
         self,
-        state::{AppScreen, InputMode, RentalManagementTab, ManagementTab},
+        state::{AppScreen, InputMode, ManagementTab, RentalManagementTab},
         widgets::{Header, KeybindBar},
     },
 };
@@ -23,12 +23,12 @@ use crossterm::{
     cursor::{Hide, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
-    Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
+    Terminal,
 };
 
 /// Tick rate for the main event loop (250ms).
@@ -136,7 +136,10 @@ fn run_app(
 }
 
 fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
-    use ui::screens::{render_dashboard, render_finance, render_management, render_rental_management, render_screensaver};
+    use ui::screens::{
+        render_dashboard, render_finance, render_management, render_rental_management,
+        render_screensaver,
+    };
     use ui::widgets::render_notification;
 
     let area = frame.size();
@@ -153,10 +156,10 @@ fn render_ui(frame: &mut ratatui::prelude::Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),  // Header
-            Constraint::Min(10),    // Main content
-            Constraint::Length(2),  // Keybind bar
-            Constraint::Length(1),  // Status bar
+            Constraint::Length(2), // Header
+            Constraint::Min(10),   // Main content
+            Constraint::Length(2), // Keybind bar
+            Constraint::Length(1), // Status bar
         ])
         .split(area);
 
@@ -348,10 +351,7 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
 
         // Actions based on screen
         KeyCode::Char('r') | KeyCode::Char('R') => {
-            if matches!(
-                app.screen,
-                AppScreen::Management(ManagementTab::Lockers)
-            ) {
+            if matches!(app.screen, AppScreen::Management(ManagementTab::Lockers)) {
                 if let Some(locker) = app.selected_locker() {
                     if locker.is_damaged {
                         app.mark_locker_repaired(locker.id)?;
@@ -362,13 +362,10 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<bool> {
 
         KeyCode::Char('d') | KeyCode::Char('D') => {
             // Mark as damaged or delete (context dependent)
-            match &app.screen {
-                AppScreen::RentalManagement(RentalManagementTab::Damage) => {
-                    if let Some(locker) = app.selected_locker() {
-                        app.mark_locker_damaged(locker.id)?;
-                    }
+            if let AppScreen::RentalManagement(RentalManagementTab::Damage) = &app.screen {
+                if let Some(locker) = app.selected_locker() {
+                    app.mark_locker_damaged(locker.id)?;
                 }
-                _ => {}
             }
         }
 
