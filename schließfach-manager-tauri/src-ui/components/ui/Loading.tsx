@@ -1,0 +1,46 @@
+import { cn } from '@/lib/cn';
+
+interface LoadingProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+const sizeClasses = {
+  sm: 'w-4 h-4 border-2',
+  md: 'w-8 h-8 border-3',
+  lg: 'w-12 h-12 border-4',
+};
+
+export function Loading({ size = 'md', className }: LoadingProps) {
+  return (
+    <div
+      className={cn(
+        'border-primary border-t-transparent rounded-full animate-spin',
+        sizeClasses[size],
+        className
+      )}
+    />
+  );
+}
+
+export function LoadingPage() {
+  return (
+    <div className="flex items-center justify-center h-full w-full">
+      <div className="flex flex-col items-center gap-4">
+        <Loading size="lg" />
+        <p className="text-subtext-0">Laden...</p>
+      </div>
+    </div>
+  );
+}
+
+export function LoadingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-base/80 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-4">
+        <Loading size="lg" />
+        <p className="text-text font-medium">Bitte warten...</p>
+      </div>
+    </div>
+  );
+}
