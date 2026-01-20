@@ -4,24 +4,20 @@ import { Dashboard } from '@/pages/Dashboard';
 import { RentalsOverview } from '@/pages/rentals/Overview';
 import { ActiveRentals } from '@/pages/rentals/Active';
 import { OverdueRentals } from '@/pages/rentals/Overdue';
+import { ExtendRental } from '@/pages/rentals/Extend';
+import { ReturnRental } from '@/pages/rentals/Return';
+import { RentalHistory } from '@/pages/rentals/History';
 import { RentWizard } from '@/components/wizards/RentWizard';
+import { FinancesOverview } from '@/pages/finances/Overview';
+import { Payments } from '@/pages/finances/Payments';
+import { Reports } from '@/pages/finances/Reports';
 import { LockersManagement } from '@/pages/management/Lockers';
+import { LocationsManagement } from '@/pages/management/Locations';
 import { SettingsPage } from '@/pages/management/Settings';
+import { AuditLog } from '@/pages/management/AuditLog';
 import { ExportImport } from '@/pages/management/Export';
 import { ShortcutsOverlay } from '@/components/ShortcutsOverlay';
 import { useGlobalShortcuts, useShortcutsOverlay } from '@/hooks';
-
-// Placeholder components for routes not yet implemented
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-text mb-2">{title}</h2>
-        <p className="text-subtext-0">Diese Seite wird noch implementiert.</p>
-      </div>
-    </div>
-  );
-}
 
 function AppContent() {
   const { isOpen, open, close } = useShortcutsOverlay();
@@ -40,24 +36,24 @@ function AppContent() {
             <Route path="new" element={<RentWizard />} />
             <Route path="active" element={<ActiveRentals />} />
             <Route path="overdue" element={<OverdueRentals />} />
-            <Route path="extend" element={<PlaceholderPage title="Verleih verlängern" />} />
-            <Route path="return" element={<PlaceholderPage title="Rückgabe" />} />
-            <Route path="history" element={<PlaceholderPage title="Verleih-Verlauf" />} />
+            <Route path="extend" element={<ExtendRental />} />
+            <Route path="return" element={<ReturnRental />} />
+            <Route path="history" element={<RentalHistory />} />
           </Route>
 
           {/* Finances */}
           <Route path="finances">
-            <Route path="overview" element={<PlaceholderPage title="Finanz-Übersicht" />} />
-            <Route path="payments" element={<PlaceholderPage title="Zahlungen" />} />
-            <Route path="reports" element={<PlaceholderPage title="Berichte" />} />
+            <Route path="overview" element={<FinancesOverview />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="reports" element={<Reports />} />
           </Route>
 
           {/* Management */}
           <Route path="management">
             <Route path="lockers" element={<LockersManagement />} />
-            <Route path="locations" element={<PlaceholderPage title="Standorte" />} />
+            <Route path="locations" element={<LocationsManagement />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="audit" element={<PlaceholderPage title="Audit-Log" />} />
+            <Route path="audit" element={<AuditLog />} />
             <Route path="export" element={<ExportImport />} />
           </Route>
         </Route>
